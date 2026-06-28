@@ -21,7 +21,7 @@ MARKET_DATA_REVALIDATE_SECONDS=900   # 900 = 15 минут кэша
 | Режим | Запрос к MOEX | `status.source` | UI (DataStatusStrip) | Строки при сбое MOEX |
 |-------|---------------|-----------------|----------------------|----------------------|
 | **mock** | Нет | `mock` | Учебные данные | — (всегда 15 mock-тикеров) |
-| **live** | Да | `moex` или `error` | MOEX ISS / Ошибка данных | **Пустая таблица**, mock не подставляется |
+| **live** | Да (сервер + браузер) | `moex` или `error` | MOEX ISS / Ошибка данных | **Пустая таблица**, mock не подставляется |
 | **fallback** | Да | `moex` или `fallback` | MOEX ISS / Резервные данные | Mock + текст причины |
 
 **Правило:** mock и fallback **никогда** не показываются как «MOEX ISS live».
@@ -67,9 +67,10 @@ npm run dev
 - «MOEX ISS», `source=moex`, `isLive=true`
 - 400+ строк TQBR, реальные LAST, VALTODAY, NUMTRADES
 
-Если MOEX недоступен (VPN, firewall, выходной без данных):
-- «Ошибка данных», пустая таблица
-- mock **не** показывается
+Если MOEX недоступен с сервера (Vercel, firewall):
+- браузер автоматически запрашивает MOEX ISS напрямую (CORS разрешён для вашего домена)
+- при успехе — «MOEX ISS», 400+ строк
+- при сбое и в браузере — «Ошибка данных», пустая таблица
 - Для разработки без MOEX: `MARKET_DATA_MODE=fallback`
 
 ### fallback
@@ -117,10 +118,21 @@ GET https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities
 2. Режим «Объём выше нормы» (нужна 20д база)
 3. Периодический refresh в live-режиме (client poll / ISR)
 
+## Браузерный fallback (Vercel)
+
+Серверы Vercel часто **не могут** достучаться до `iss.moex.com`. MOEX ISS при этом разрешает CORS для вашего домена (`dengi-na-birzhe.vercel.app`, `localhost:3000`).
+
+В режиме `live` / `fallback`:
+1. Сервер пробует MOEX ISS (работает локально)
+2. При сбое — клиент (`lib/data/moex-browser.ts`) запрашивает ISS из браузера пользователя
+3. Парсер общий: `lib/data/moex-iss-core.ts`
+
 ## Связанные файлы
 
 - `lib/data/config.ts` — чтение env
 - `lib/data/provider.ts` — ветвление mock / live / fallback
-- `lib/data/moex-adapter.ts` — ISS fetch + parse + cache
+- `lib/data/moex-iss-core.ts` — парсер ISS (общий для сервера и браузера)
+- `lib/data/moex-browser.ts` — fetch из браузера
+- `lib/hooks/useClientMoexFallback.ts` — fallback при сбое сервера
 - `components/screener/DataStatusStrip.tsx` — честная подпись в UI
 - `app/api/market-data/debug/route.ts` — dev-диагностика

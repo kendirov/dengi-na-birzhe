@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import type { EnrichedInstrument } from "@/lib/types/instrument";
-import type { MarketDataStatus, DataDiagnostics } from "@/lib/data/types";
+import type {
+  MarketDataStatus,
+  DataDiagnostics,
+  MarketDataMode,
+} from "@/lib/data/types";
 import type { QuickFilterId, ScreenerMode, SortColumn, SortDirection } from "@/lib/types/screener";
 import {
   filterInstruments,
@@ -19,6 +23,7 @@ import {
 } from "@/components/screener/DataStatusStrip";
 import { ScreenerIntroPanel } from "@/components/screener/ScreenerIntroPanel";
 import { TerminalPanel } from "@/components/ui/TerminalPanel";
+import { useClientMoexFallback } from "@/lib/hooks/useClientMoexFallback";
 
 const TABLE_DISPLAY_LIMIT = 200;
 
@@ -26,13 +31,30 @@ interface ScreenerClientProps {
   instruments: EnrichedInstrument[];
   status: MarketDataStatus;
   diagnostics: DataDiagnostics;
+  dataMode: MarketDataMode;
+  moexBaseUrl: string;
+  moexTimeoutMs: number;
 }
 
 export function ScreenerClient({
-  instruments,
-  status,
-  diagnostics,
+  instruments: initialInstruments,
+  status: initialStatus,
+  diagnostics: initialDiagnostics,
+  dataMode,
+  moexBaseUrl,
+  moexTimeoutMs,
 }: ScreenerClientProps) {
+  const { instruments, status, diagnostics, isLoading } = useClientMoexFallback({
+    dataMode,
+    moexBaseUrl,
+    moexTimeoutMs,
+    initial: {
+      instruments: initialInstruments,
+      status: initialStatus,
+      diagnostics: initialDiagnostics,
+    },
+  });
+
   const [mode, setMode] = useState<ScreenerMode>("technical");
   const [search, setSearch] = useState("");
   const [quickFilters, setQuickFilters] = useState<QuickFilterId[]>([]);
@@ -41,6 +63,12 @@ export function ScreenerClient({
   const [selected, setSelected] = useState<EnrichedInstrument | null>(
     instruments[0] ?? null,
   );
+
+  useEffect(() => {
+    if (!selected && instruments.length > 0) {
+      setSelected(instruments[0] ?? null);
+    }
+  }, [instruments, selected]);
 
   const filtered = useMemo(
     () => filterInstruments(instruments, mode, search, quickFilters),
@@ -98,15 +126,18 @@ export function ScreenerClient({
         status={status}
         diagnostics={diagnostics}
         rowCount={instruments.length}
+        isLoading={isLoading}
       />
 
       <TerminalPanel
         title="Учебный терминал"
-        status={terminalStatusLabel(status.source)}
+        status={isLoading ? "Загрузка MOEX ISS…" : terminalStatusLabel(status.source)}
         scanLine={false}
       >
         <div className="space-y-4 p-3 lg:p-4">
-          {isErrorEmpty ? (
+          {isLoading ? (
+            <LoadingState />
+          ) : isErrorEmpty ? (
             <ErrorEmptyState reason={status.fallbackReason} />
           ) : (
             <>
@@ -163,14 +194,25 @@ export function ScreenerClient({
   );
 }
 
+function LoadingState() {
+  return (
+    <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-green/20 bg-green/5 p-6 text-center">
+      <p className="mb-2 text-sm font-semibold text-green">Загрузка MOEX ISS…</p>
+      <p className="max-w-md text-sm text-terminal-muted">
+        Запрашиваем реальные данные TQBR с iss.moex.com через браузер.
+      </p>
+    </div>
+  );
+}
+
 function ErrorEmptyState({ reason }: { reason?: string }) {
   return (
     <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-red/20 bg-red/5 p-6 text-center">
       <p className="mb-2 text-sm font-semibold text-red">MOEX ISS не ответил</p>
       <p className="mb-4 max-w-md text-sm text-terminal-muted">
-        Режим <code className="text-red">MARKET_DATA_MODE=live</code> не
-        подставляет учебные данные. Проверьте интернет/VPN или используйте{" "}
-        <code>MARKET_DATA_MODE=fallback</code> для разработки.
+        Сервер Vercel не может достучаться до MOEX. Браузерная загрузка тоже не
+        удалась. Проверьте интернет или используйте{" "}
+        <code className="text-red">MARKET_DATA_MODE=fallback</code>.
       </p>
       {reason && (
         <p className="max-w-lg font-mono text-xs text-terminal-muted">{reason}</p>

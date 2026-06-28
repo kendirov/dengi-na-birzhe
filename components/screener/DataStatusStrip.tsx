@@ -7,6 +7,7 @@ interface DataStatusStripProps {
   status: MarketDataStatus;
   diagnostics: DataDiagnostics;
   rowCount: number;
+  isLoading?: boolean;
 }
 
 const SOURCE_CONFIG = {
@@ -53,8 +54,16 @@ export function DataStatusStrip({
   status,
   diagnostics,
   rowCount,
+  isLoading = false,
 }: DataStatusStripProps) {
-  const cfg = SOURCE_CONFIG[status.source];
+  const cfg = isLoading
+    ? {
+        label: "Загрузка MOEX ISS",
+        sublabel: "Запрос данных TQBR из браузера",
+        tone: "green" as const,
+        pulse: true,
+      }
+    : SOURCE_CONFIG[status.source];
   const updated = new Date(status.updatedAt).toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",

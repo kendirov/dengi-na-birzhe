@@ -1,9 +1,11 @@
 import { AppShell } from "@/components/AppShell";
 import { ScreenerClient } from "@/components/ScreenerClient";
 import { getMarketInstruments } from "@/lib/data/provider";
+import { getMarketDataConfig } from "@/lib/data/config";
 
 /** Shared screener screen for "/" and "/screener" */
 export async function ScreenerScreen() {
+  const config = getMarketDataConfig();
   const result = await getMarketInstruments();
 
   return (
@@ -13,6 +15,9 @@ export async function ScreenerScreen() {
           instruments={result.rows}
           status={result.status}
           diagnostics={result.diagnostics}
+          dataMode={config.mode}
+          moexBaseUrl={config.moexBaseUrl}
+          moexTimeoutMs={config.moexTimeoutMs}
         />
       </div>
     </AppShell>
