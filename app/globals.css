@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --color-terminal-bg: #05070d;
+  --color-terminal-surface: #0b1220;
+  --color-terminal-card: #101827;
+  --color-terminal-border: #1a2744;
+  --color-terminal-muted: #64748b;
+  --color-terminal-text: #e2e8f0;
+  --color-cyan: #22d3ee;
+  --color-green: #34d399;
+  --color-red: #f87171;
+  --color-amber: #fbbf24;
+  --color-violet: #a78bfa;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-terminal-bg text-terminal-text antialiased;
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    @apply bg-cyan/20 text-cyan;
+  }
+}
+
+@layer utilities {
+  .terminal-grid {
+    background-image:
+      linear-gradient(rgba(34, 211, 238, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .data-glow-cyan {
+    text-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+  }
+
+  .data-glow-green {
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.35);
+  }
+
+  .data-glow-red {
+    text-shadow: 0 0 20px rgba(248, 113, 113, 0.35);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 32px rgba(34, 211, 238, 0.06);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 32px rgba(52, 211, 153, 0.06);
+  }
+
+  .card-hover {
+    @apply transition-all duration-300;
+  }
+
+  .card-hover:hover {
+    @apply border-cyan/25 -translate-y-0.5;
+    box-shadow: 0 8px 32px rgba(34, 211, 238, 0.06);
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(34, 211, 238, 0.4),
+      transparent
+    );
+    animation: scan 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes scan {
+    0% {
+      top: 0;
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.8;
+    }
+    90% {
+      opacity: 0.8;
+    }
+    100% {
+      top: 100%;
+      opacity: 0;
+    }
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-thumb {
+    background: #1a2744;
+    border-radius: 3px;
+  }
+}
