@@ -23,6 +23,7 @@ import {
 } from "@/components/screener/DataStatusStrip";
 import { ScreenerIntroPanel } from "@/components/screener/ScreenerIntroPanel";
 import { ReturnLogicPanel } from "@/components/screener/ReturnLogicPanel";
+import { ScreenerUseGuide } from "@/components/screener/ScreenerUseGuide";
 import { ModeExplainerPanel } from "@/components/screener/ModeExplainerPanel";
 import { TerminalPanel } from "@/components/ui/TerminalPanel";
 import { useClientMoexFallback } from "@/lib/hooks/useClientMoexFallback";
@@ -119,7 +120,7 @@ export function ScreenerClient({
 
   const handleModeChange = useCallback((newMode: ScreenerMode) => {
     setMode(newMode);
-    setSortColumn(newMode === "spread" ? "spreadTicks" : "score");
+    setSortColumn("score");
     setSortDirection("desc");
   }, []);
 
@@ -127,9 +128,11 @@ export function ScreenerClient({
 
   return (
     <div className="space-y-4">
-      <ScreenerIntroPanel onModeSelect={handleModeChange} />
+      <ScreenerIntroPanel mode={mode} onModeSelect={handleModeChange} />
 
       <ReturnLogicPanel />
+
+      <ScreenerUseGuide />
 
       <DataStatusStrip
         status={status}

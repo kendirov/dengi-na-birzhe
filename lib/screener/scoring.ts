@@ -2,6 +2,11 @@ import type { MarketInstrumentRaw } from "@/lib/data/types";
 import { DEFAULT_MARKET_COMMISSION_RATE } from "@/lib/screener/commission";
 import { calculateEntryCost } from "@/lib/screener/calculator";
 import { isFundLikeInstrument } from "@/lib/screener/etf";
+import {
+  calculateSpreadTradingScore,
+  type SpreadScoreInput,
+  type SpreadUniverseContext,
+} from "@/lib/screener/spread-trading";
 import { clamp, percentileRank } from "@/lib/screener/percentile";
 
 interface ScoreContext {
@@ -104,18 +109,40 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
   };
 }
 
-function spreadTicksQualityScore(ticks: number | null): number {
-  if (ticks === null) return 20;
-  if (ticks < 1) return 15;
-  if (ticks < 2) return 35;
-  if (ticks <= 8) return clamp(72 + (ticks - 2) * 3.5);
-  if (ticks <= 15) return clamp(88 - (ticks - 8) * 4);
-  if (ticks <= 30) return clamp(58 - (ticks - 15) * 2);
-  return clamp(28 - (ticks - 30) * 0.5);
+function toSpreadScoreInput(
+  inst: MarketInstrumentRaw,
+  lotValue: number,
+  tickVal: number | null,
+  spreadTicksVal: number | null,
+): SpreadScoreInput {
+  return {
+    ticker: inst.ticker,
+    name: inst.name,
+    price: inst.price,
+    lotSize: inst.lotSize,
+    lotValue,
+    tickSize: inst.tickSize,
+    tickValueRub: tickVal,
+    spreadRub: inst.spreadRub,
+    spreadTicks: spreadTicksVal,
+    turnoverRub: inst.turnoverRub,
+    trades: inst.trades,
+    bid: inst.bid,
+    ask: inst.ask,
+    entryCostMarketTicks: null,
+    commissionMarketTicks: null,
+  };
 }
 
-function lotValueQualityScore(lotValuePct: number): number {
-  return clamp(100 - Math.abs(lotValuePct - 45) * 1.2);
+function spreadContextFromScoreContext(ctx: ScoreContext): SpreadUniverseContext {
+  return {
+    tradesRanks: ctx.tradesRanks,
+    turnoverRanks: ctx.turnoverRanks,
+    lotValueRanks: ctx.lotValueRanks,
+    spreadRubRanks: ctx.spreadRubRanks,
+    tickValueRanks: ctx.tickValueRanks,
+    entryCostTicksRanks: ctx.entryCostRanks,
+  };
 }
 
 function medianOrZero(values: number[]): number {
@@ -154,10 +181,6 @@ export function computeScores(
   const spreadTicksRank =
     spreadTicksVal !== null
       ? percentileRank(spreadTicksVal, ctx.spreadTicksRanks)
-      : 50;
-  const spreadRubRank =
-    inst.spreadRub !== null
-      ? percentileRank(inst.spreadRub, ctx.spreadRubRanks)
       : 50;
   const lotValuePct = percentileRank(lotValueOf(inst), ctx.lotValueRanks);
   const dayRangePctRank = percentileRank(dayRangeOf(inst), ctx.dayRangeRanks);
@@ -199,34 +222,9 @@ export function computeScores(
       zigzagScore * 0.2,
   );
 
-  const spreadRubScore = spreadRubRank;
-  const spreadTicksScore = spreadTicksQualityScore(spreadTicksVal);
-  const tradesScore = tradesPct;
-  const turnoverScore = turnoverPct;
-  const tickValueQuality = clamp(100 - Math.abs(tickValuePct - 45) * 1.5);
-  const lotValueQuality = lotValueQualityScore(lotValuePct);
-
-  const fundPenalty = isFundLikeInstrument(inst) ? 40 : 0;
-  const thinLiquidityPenalty =
-    tradesPct < 30 || turnoverPct < 25 ? 28 : tradesPct < 45 ? 14 : 0;
-  const extremeLotPenalty =
-    lotValuePct > 82 ? 18 : lotValuePct > 72 ? 10 : 0;
-  const hugeSpreadPenalty =
-    spreadTicksVal !== null && spreadTicksVal > 20
-      ? clamp((spreadTicksVal - 20) * 1.5)
-      : 0;
-
-  const spreadTradingScore = clamp(
-    spreadTicksScore * 0.3 +
-      spreadRubScore * 0.15 +
-      tradesScore * 0.25 +
-      turnoverScore * 0.15 +
-      tickValueQuality * 0.1 +
-      lotValueQuality * 0.05 -
-      fundPenalty -
-      thinLiquidityPenalty -
-      extremeLotPenalty -
-      hugeSpreadPenalty,
+  const spreadTradingScore = calculateSpreadTradingScore(
+    toSpreadScoreInput(inst, lotValueOf(inst), tickVal, spreadTicksVal),
+    spreadContextFromScoreContext(ctx),
   );
 
   const spreadPenalty = spreadPctRank > 75 ? (spreadPctRank - 75) * 1.5 : 0;

@@ -11,10 +11,15 @@ import {
 } from "@/lib/screener/tags";
 import {
   buildWhyBullets,
+  buildSpreadWhyBullets,
   buildRiskBullets,
   buildWhyShort,
   DEFAULT_LESSON_TIPS,
 } from "@/lib/screener/insights";
+import {
+  buildSpreadUniverseContext,
+  isSpreadTradableCandidate,
+} from "@/lib/screener/spread-trading";
 
 function applyComputedFields(raw: MarketInstrumentRaw): MarketInstrumentRaw & {
   lotValue: number;
@@ -74,6 +79,8 @@ function enrichOne(
     defaultCommissionRate: DEFAULT_MARKET_COMMISSION_RATE,
     visualTags: [],
     whyBullets: [],
+    spreadWhyBullets: [],
+    spreadTradable: false,
     riskBullets: [],
     lessonTips: DEFAULT_LESSON_TIPS,
     typeLabels: [],
@@ -87,15 +94,21 @@ export function enrichMarketInstruments(
   const ctx = buildScoreContext(instruments);
   const enriched = instruments.map((inst) => enrichOne(inst, ctx));
   const medians = computeMedians(enriched);
+  const spreadCtx = buildSpreadUniverseContext(enriched);
 
-  return enriched.map((inst) => ({
-    ...inst,
-    visualTags: buildVisualTags(inst, medians),
-    typeLabels: buildTypeLabels(inst),
-    whyBullets: buildWhyBullets(inst),
-    riskBullets: buildRiskBullets(inst),
-    whyShort: buildWhyShort(inst),
-  }));
+  return enriched.map((inst) => {
+    const spreadTradable = isSpreadTradableCandidate(inst, spreadCtx);
+    return {
+      ...inst,
+      spreadTradable,
+      visualTags: buildVisualTags(inst, medians),
+      typeLabels: buildTypeLabels(inst),
+      whyBullets: buildWhyBullets(inst),
+      spreadWhyBullets: spreadTradable ? buildSpreadWhyBullets(inst) : [],
+      riskBullets: buildRiskBullets(inst),
+      whyShort: buildWhyShort(inst),
+    };
+  });
 }
 
 /** @deprecated use enrichMarketInstruments */

@@ -65,7 +65,7 @@ export function TopPickCard({
             <span className="text-terminal-muted">Спред </span>
             <span className="font-mono text-amber">
               {instrument.spreadTicks !== null
-                ? `${instrument.spreadTicks.toFixed(0)} шаг`
+                ? `${instrument.spreadTicks.toFixed(0)} п.`
                 : instrument.spreadRub !== null
                   ? `${instrument.spreadRub.toFixed(2)} ₽`
                   : "—"}

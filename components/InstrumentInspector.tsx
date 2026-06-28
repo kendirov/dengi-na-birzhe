@@ -4,6 +4,13 @@ import type { EnrichedInstrument } from "@/lib/types/instrument";
 import type { ScreenerMode } from "@/lib/types/screener";
 import { InstrumentTagList } from "@/components/screener/InstrumentTag";
 import { TradeCalculator } from "@/components/screener/TradeCalculator";
+import { buildBeginnerExplanation } from "@/lib/screener/insights";
+import {
+  buildErrorPriceSummary,
+  DRIVE_CHECKLIST,
+  getInstrumentDecision,
+  type InstrumentDecisionStatus,
+} from "@/lib/screener/instrument-decision";
 import {
   formatPct,
   formatPrice,
@@ -17,12 +24,33 @@ interface InstrumentInspectorProps {
   mode: ScreenerMode;
 }
 
-function formatTicks(value: number | null, digits = 1): string {
+function formatPoints(value: number | null, digits = 1): string {
   if (value === null) return "—";
   return value.toFixed(digits);
 }
 
-export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
+const DECISION_STYLES: Record<
+  InstrumentDecisionStatus,
+  { dot: string; text: string; border: string }
+> = {
+  study: {
+    dot: "bg-green",
+    text: "text-green",
+    border: "border-green/25 bg-green/[0.06]",
+  },
+  orderbook: {
+    dot: "bg-amber",
+    text: "text-amber",
+    border: "border-amber/25 bg-amber/[0.06]",
+  },
+  skip: {
+    dot: "bg-red",
+    text: "text-red",
+    border: "border-red/25 bg-red/[0.06]",
+  },
+};
+
+export function InstrumentInspector({ instrument, mode }: InstrumentInspectorProps) {
   if (!instrument) {
     return (
       <div className="flex min-h-[480px] items-center justify-center rounded-lg border border-terminal-border bg-terminal-card p-6 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)]">
@@ -36,7 +64,13 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
   }
 
   const positive = (instrument.changePct ?? 0) >= 0;
-  const hasSpread = instrument.spreadRub !== null && instrument.spreadTicks !== null;
+  const decision = getInstrumentDecision(instrument);
+  const decisionStyle = DECISION_STYLES[decision.status];
+  const errorPrice = buildErrorPriceSummary(instrument);
+  const whyBullets =
+    mode === "spread" && instrument.spreadTradable
+      ? buildBeginnerExplanation(instrument, "spread")
+      : buildBeginnerExplanation(instrument, mode);
 
   return (
     <div className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-terminal-border bg-terminal-card lg:sticky lg:top-20">
@@ -59,21 +93,88 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
             </div>
           </div>
           <InstrumentTagList tags={instrument.visualTags} limit={4} />
-          <p className="mt-2 text-[11px] text-terminal-muted">
-            Тип: {instrument.typeLabels.join(" · ") || "—"}
-          </p>
-          {instrument.whyShort && (
-            <p className="mt-1 text-[11px] text-terminal-muted/90">
-              {instrument.whyShort}
-            </p>
-          )}
         </div>
+
+        <div
+          className={cn(
+            "mb-4 flex items-start gap-2 rounded border px-2.5 py-2",
+            decisionStyle.border,
+          )}
+        >
+          <span
+            className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", decisionStyle.dot)}
+            aria-hidden
+          />
+          <div className="min-w-0">
+            <p className={cn("text-[10px] font-semibold uppercase tracking-wider", decisionStyle.text)}>
+              Решение по инструменту: {decision.label}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-terminal-muted">
+              {decision.message}
+            </p>
+          </div>
+        </div>
+
+        <InspectorBlock title="Цена ошибки">
+          <div className="space-y-1.5 text-[11px]">
+            <ErrorRow
+              label="1 шаг против"
+              value={
+                errorPrice.oneStepRub !== null
+                  ? `${formatRub(errorPrice.oneStepRub)} на 1 лот`
+                  : "—"
+              }
+            />
+            <ErrorRow
+              label="Spread"
+              value={
+                errorPrice.spreadPoints !== null
+                  ? `${formatPoints(errorPrice.spreadPoints, 0)} п. / ${errorPrice.spreadRub !== null ? `${errorPrice.spreadRub.toFixed(2)} ₽` : "—"}`
+                  : "—"
+              }
+              tone="amber"
+            />
+            <ErrorRow
+              label="Лимитка"
+              value={`${formatPoints(errorPrice.limitEntryPoints)} п. комиссии`}
+            />
+            <ErrorRow
+              label="Рынок"
+              value={`${formatPoints(errorPrice.marketEntryPoints)} п. входа`}
+              highlight={
+                errorPrice.marketEntryPoints !== null &&
+                errorPrice.marketEntryPoints >= 8
+              }
+            />
+            <ErrorRow
+              label="5 шагов против"
+              value={
+                errorPrice.fiveStepRub !== null
+                  ? formatRub(errorPrice.fiveStepRub)
+                  : "—"
+              }
+              highlight
+            />
+          </div>
+        </InspectorBlock>
+
+        <InspectorBlock title="Что проверить в приводе">
+          <ul className="space-y-1 text-[10px] leading-snug text-terminal-muted">
+            {DRIVE_CHECKLIST.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="mt-0.5 h-3 w-3 shrink-0 rounded border border-terminal-border/70 bg-[#080E18]" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </InspectorBlock>
 
         <InspectorBlock title="Главное">
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <Metric label="Цена лота" value={formatRub(instrument.lotValue)} />
             <Metric
               label="Шаг/лот"
+              title="Сколько рублей даёт 1 минимальный шаг цены при позиции 1 лот."
               value={
                 instrument.tickValueRub !== null
                   ? formatRub(instrument.tickValueRub)
@@ -90,6 +191,38 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
               }
             />
             <Metric
+              label="Спред, пунктов"
+              title="Сколько минимальных шагов цены между bid и ask."
+              value={formatPoints(instrument.spreadTicks, 0)}
+              tone="amber"
+            />
+            <Metric
+              label="Спред, ₽"
+              value={
+                instrument.spreadRub !== null
+                  ? `${instrument.spreadRub.toFixed(2)} ₽`
+                  : "—"
+              }
+              tone="amber"
+            />
+            <Metric
+              label="Спред, %"
+              value={
+                instrument.spreadPct !== null
+                  ? `${instrument.spreadPct.toFixed(3)}%`
+                  : "—"
+              }
+              tone="amber"
+            />
+            <Metric
+              label="Ком. лимит, ₽ / п."
+              value={`${formatRub(instrument.commissionLimitRub)} / ${formatPoints(instrument.commissionLimitTicks)}`}
+            />
+            <Metric
+              label="Ком. рынок, ₽ / п."
+              value={`${formatRub(instrument.commissionMarketRub)} / ${formatPoints(instrument.commissionMarketTicks)}`}
+            />
+            <Metric
               label="Оборот"
               value={formatRub(instrument.turnoverRub, true)}
               tone="green"
@@ -99,68 +232,22 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
               value={formatNumber(instrument.trades)}
               tone="green"
             />
-            <Metric
-              label="Диапазон"
-              value={
-                instrument.dayRangePct !== null
-                  ? `${instrument.dayRangePct.toFixed(1)}%`
-                  : "—"
-              }
-            />
           </div>
-        </InspectorBlock>
-
-        <InspectorBlock title="Издержки входа">
-          {hasSpread ? (
-            <div className="space-y-2 text-[11px]">
-              <CostRow
-                label="Спред"
-                value={`${formatTicks(instrument.spreadTicks, 0)} шаг / ${instrument.spreadRub!.toFixed(2)} ₽ / ${instrument.spreadPct?.toFixed(3) ?? "—"}%`}
-              />
-              <CostRow
-                label="Комиссия лимит"
-                value={`${formatRub(instrument.commissionLimitRub)} / ${formatTicks(instrument.commissionLimitTicks)} шаг`}
-              />
-              <CostRow
-                label="Комиссия рынок"
-                value={`${formatRub(instrument.commissionMarketRub)} / ${formatTicks(instrument.commissionMarketTicks)} шаг`}
-              />
-              <CostRow
-                label="Вход лимиткой"
-                value={`${formatNullableCost(instrument.entryCostLimitRub)} / ${formatTicks(instrument.entryCostLimitTicks)} шаг`}
-                highlight={instrument.entryCostLimitTicks !== null && instrument.entryCostLimitTicks >= 5}
-              />
-              <CostRow
-                label="Вход рынком"
-                value={`${formatNullableCost(instrument.entryCostMarketRub)} / ${formatTicks(instrument.entryCostMarketTicks)} шаг`}
-                highlight={instrument.entryCostMarketTicks !== null && instrument.entryCostMarketTicks >= 5}
-              />
-            </div>
-          ) : (
-            <div className="space-y-2 text-[11px] text-terminal-muted">
-              <p>Спред: нет данных</p>
-              <CostRow
-                label="Комиссия лимит"
-                value={`${formatRub(instrument.commissionLimitRub)} / ${formatTicks(instrument.commissionLimitTicks)} шаг`}
-              />
-              <CostRow
-                label="Комиссия рынок"
-                value={`${formatRub(instrument.commissionMarketRub)} / ${formatTicks(instrument.commissionMarketTicks)} шаг`}
-              />
-              <p className="text-[10px] leading-relaxed">
-                Комиссия считается только от цены лота
-              </p>
-            </div>
+          {instrument.spreadRub === null && (
+            <p className="mt-2 text-[10px] text-amber/85">
+              Спред недоступен: MOEX не отдал bid/ask по инструменту.
+            </p>
           )}
-          <p className="mt-2 text-[10px] leading-relaxed text-terminal-muted">
-            Для спредовой торговли важно не только расстояние между bid/ask, но
-            и сколько шагов цены съедает комиссия.
-          </p>
+          {!instrument.hasHistoricalBaseline && (
+            <p className="mt-2 text-[10px] text-terminal-muted">
+              Исторической базы нет — оценка по текущим оборотам и сделкам.
+            </p>
+          )}
         </InspectorBlock>
 
         <InspectorBlock title="Почему подходит">
           <ul className="space-y-1.5 text-[11px] leading-relaxed text-terminal-text/85">
-            {instrument.whyBullets.slice(0, 3).map((b) => (
+            {whyBullets.map((b) => (
               <li key={b} className="flex gap-2">
                 <span className="text-cyan">·</span>
                 {b}
@@ -180,17 +267,6 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
           </ul>
         </InspectorBlock>
 
-        <InspectorBlock title="Как использовать на занятии">
-          <ul className="space-y-1.5 text-[11px] leading-relaxed text-terminal-muted">
-            {instrument.lessonTips.slice(0, 3).map((t) => (
-              <li key={t} className="flex gap-2">
-                <span className="text-violet">→</span>
-                {t}
-              </li>
-            ))}
-          </ul>
-        </InspectorBlock>
-
         <div className="mt-2 border-t border-terminal-border pt-4">
           <TradeCalculator instrument={instrument} />
         </div>
@@ -199,24 +275,26 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
   );
 }
 
-function formatNullableCost(value: number | null): string {
-  if (value === null) return "—";
-  return formatRub(value);
-}
-
-function CostRow({
+function ErrorRow({
   label,
   value,
+  tone,
   highlight,
 }: {
   label: string;
   value: string;
+  tone?: "amber";
   highlight?: boolean;
 }) {
   return (
     <div className="flex justify-between gap-2 rounded border border-terminal-border/50 bg-terminal-surface/30 px-2 py-1.5">
       <span className="text-terminal-muted">{label}</span>
-      <span className={cn("font-mono text-right", highlight ? "text-red" : "text-terminal-text")}>
+      <span
+        className={cn(
+          "font-mono text-right",
+          highlight ? "font-semibold text-cyan" : tone === "amber" ? "text-amber" : "text-terminal-text",
+        )}
+      >
         {value}
       </span>
     </div>
@@ -226,22 +304,29 @@ function CostRow({
 function Metric({
   label,
   value,
+  title,
   highlight,
   tone,
 }: {
   label: string;
   value: string;
+  title?: string;
   highlight?: boolean;
-  tone?: "green";
+  tone?: "green" | "amber";
 }) {
   const valueClass = highlight
     ? "text-cyan font-bold"
     : tone === "green"
       ? "text-green"
-      : "text-terminal-text";
+      : tone === "amber"
+        ? "text-amber"
+        : "text-terminal-text";
 
   return (
-    <div className="rounded border border-terminal-border/60 bg-terminal-surface/40 px-2 py-1.5">
+    <div
+      className="rounded border border-terminal-border/60 bg-terminal-surface/40 px-2 py-1.5"
+      title={title}
+    >
       <p className="text-[9px] uppercase tracking-wider text-terminal-muted">
         {label}
       </p>

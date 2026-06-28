@@ -104,6 +104,8 @@ export interface MarketInstrument extends MarketInstrumentRaw, InstrumentScore {
   defaultCommissionRate: number;
   visualTags: VisualTag[];
   whyBullets: string[];
+  spreadWhyBullets: string[];
+  spreadTradable: boolean;
   riskBullets: string[];
   lessonTips: string[];
   typeLabels: string[];

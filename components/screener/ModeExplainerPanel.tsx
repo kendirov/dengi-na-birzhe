@@ -30,33 +30,51 @@ function TechnicalScheme() {
 
 function SpreadScheme() {
   return (
-    <svg viewBox="0 0 100 48" className="h-12 w-full" aria-hidden>
-      {[20, 35, 50, 65, 80].map((x) => (
-        <g key={x}>
-          <rect
-            x={x}
-            y="8"
-            width="8"
-            height="6"
-            fill="rgba(52, 211, 153, 0.2)"
-            stroke="rgba(52, 211, 153, 0.5)"
-            strokeWidth="0.5"
-          />
-          <rect
-            x={x}
-            y="34"
-            width="8"
-            height="6"
-            fill="rgba(248, 113, 113, 0.2)"
-            stroke="rgba(248, 113, 113, 0.5)"
-            strokeWidth="0.5"
-          />
-        </g>
-      ))}
-      <text x="50" y="26" textAnchor="middle" fill="rgba(251, 191, 36, 0.8)" fontSize="8">
-        spread
-      </text>
-    </svg>
+    <div className="w-full text-center">
+      <svg viewBox="0 0 120 40" className="mx-auto h-10 w-full max-w-[180px]" aria-hidden>
+        <rect
+          x="8"
+          y="12"
+          width="28"
+          height="16"
+          rx="2"
+          fill="rgba(52, 211, 153, 0.15)"
+          stroke="rgba(52, 211, 153, 0.55)"
+          strokeWidth="0.8"
+        />
+        <rect
+          x="84"
+          y="12"
+          width="28"
+          height="16"
+          rx="2"
+          fill="rgba(248, 113, 113, 0.15)"
+          stroke="rgba(248, 113, 113, 0.55)"
+          strokeWidth="0.8"
+        />
+        <text x="22" y="23" textAnchor="middle" fill="rgba(52, 211, 153, 0.9)" fontSize="7">
+          BID
+        </text>
+        <text x="98" y="23" textAnchor="middle" fill="rgba(248, 113, 113, 0.9)" fontSize="7">
+          ASK
+        </text>
+        <line
+          x1="40"
+          y1="20"
+          x2="80"
+          y2="20"
+          stroke="rgba(251, 191, 36, 0.75)"
+          strokeWidth="1.2"
+          strokeDasharray="3 2"
+        />
+        <text x="60" y="17" textAnchor="middle" fill="rgba(251, 191, 36, 0.85)" fontSize="6">
+          spread pts
+        </text>
+      </svg>
+      <p className="mt-1 text-[9px] text-terminal-muted/90">
+        Широкий, но живой spread.
+      </p>
+    </div>
   );
 }
 
@@ -171,14 +189,14 @@ const MODE_CONFIG: Record<ScreenerMode, ModeConfig> = {
   all: {
     title: "Все инструменты",
     description:
-      "Общий список. Для торговли лучше выбирать через конкретный режим: техничные, спредовые, в игре или для новичка.",
+      "Общий список. Лучше начинать с конкретной задачи.",
     watch: [],
     scheme: <AllScheme />,
   },
   technical: {
-    title: "Техничные инструменты",
+    title: "Для графика",
     description:
-      "Для графика, уровней, high/low, импульсов и откатов. Обычно важны диапазон, ликвидность и понятное движение.",
+      "Ищем инструменты с движением, диапазоном и понятной структурой. Подходит для уровней, high/low, откатов и продолжения.",
     watch: [
       "диапазон дня",
       "high/low",
@@ -189,24 +207,23 @@ const MODE_CONFIG: Record<ScreenerMode, ModeConfig> = {
     scheme: <TechnicalScheme />,
   },
   spread: {
-    title: "Спредовые инструменты",
+    title: "Для стакана",
     description:
-      "Для работы от bid/ask. Важны ширина спреда, цена шага, комиссия, сделки и плотность стакана.",
+      "Ищем рабочий spread: несколько пунктов между bid/ask, сделки, оборот и понятная цена шага.",
     watch: [
-      "spread ₽",
-      "spread %",
-      "spread ticks",
-      "цена шага",
-      "сделки",
-      "оборот",
-      "стоимость входа",
+      "Спред, пунктов",
+      "Цена шага",
+      "Комиссия, пунктов",
+      "Сделки",
+      "Оборот",
+      "Стоимость входа",
     ],
     scheme: <SpreadScheme />,
   },
   "in-play": {
-    title: "Инструменты в игре",
+    title: "Активные",
     description:
-      "Есть оборот, сделки и движение. Это не сигнал, а список того, что сейчас стоит наблюдать.",
+      "Ищем инструменты, где появились деньги, сделки и движение. Это список для наблюдения, не сигнал.",
     watch: [
       "оборот",
       "сделки",
@@ -218,9 +235,9 @@ const MODE_CONFIG: Record<ScreenerMode, ModeConfig> = {
     scheme: <InPlayScheme />,
   },
   beginner: {
-    title: "Инструменты для тренировки",
+    title: "Для тренировки",
     description:
-      "Понятный лот, понятная цена шага, не экстремальный спред и достаточно сделок.",
+      "Понятный лот, понятный шаг, не экстремальный spread, достаточно сделок.",
     watch: [
       "цена лота",
       "пункт/лот",
@@ -232,9 +249,9 @@ const MODE_CONFIG: Record<ScreenerMode, ModeConfig> = {
     scheme: <BeginnerScheme />,
   },
   dangerous: {
-    title: "Опасные инструменты",
+    title: "Не лезть без плана",
     description:
-      "Движение есть, но торговые условия плохие: широкий спред, мало сделок, дорогой лот или высокая стоимость ошибки.",
+      "Движение есть, но условия плохие: широкий spread, мало сделок, дорогая ошибка или пустой стакан.",
     watch: [
       "широкий spread",
       "мало сделок",
@@ -262,8 +279,7 @@ export function ModeExplainerPanel({
   onSelect,
 }: ModeExplainerPanelProps) {
   const config = MODE_CONFIG[mode];
-  const fewSpread =
-    mode === "spread" && modeCount < 5;
+  const fewSpread = mode === "spread" && modeCount < 3;
 
   return (
     <div
@@ -295,8 +311,8 @@ export function ModeExplainerPanel({
           )}
           {fewSpread && (
             <p className="mt-3 text-[11px] text-amber/90">
-              Мало инструментов по условиям ({modeCount}). Нужны широкий спред,
-              сделки, оборот и понятный шаг — не добиваем мусором.
+              Подходящих спредовых инструментов сейчас мало ({modeCount}). Это
+              нормально: спред без сделок — не рабочий инструмент.
             </p>
           )}
         </div>

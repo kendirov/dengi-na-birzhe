@@ -46,19 +46,13 @@ export function computeCommissionCosts(params: {
   const spreadCostRub =
     params.spreadRub !== null ? params.spreadRub * params.lotSize : null;
 
-  const entryCostLimitRub =
-    spreadCostRub !== null
-      ? spreadCostRub + commissionLimitRub
-      : null;
-  const entryCostMarketRub =
-    spreadCostRub !== null
-      ? spreadCostRub + commissionMarketRub
-      : null;
+  const entryCostLimitRub = commissionLimitRub;
 
-  const entryCostLimitTicks =
-    params.spreadTicks !== null && commissionLimitTicks !== null
-      ? params.spreadTicks + commissionLimitTicks
-      : null;
+  const entryCostMarketRub =
+    spreadCostRub !== null ? spreadCostRub + commissionMarketRub : null;
+
+  const entryCostLimitTicks = commissionLimitTicks;
+
   const entryCostMarketTicks =
     params.spreadTicks !== null && commissionMarketTicks !== null
       ? params.spreadTicks + commissionMarketTicks

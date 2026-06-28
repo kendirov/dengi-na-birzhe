@@ -35,15 +35,19 @@ export function ScreenerToolbar({
             <button
               key={m.id}
               type="button"
+              title={`${m.description}`}
               onClick={() => onModeChange(m.id)}
               className={cn(
-                "rounded-lg border px-3 py-2 text-xs font-medium transition-all lg:text-sm",
+                "rounded-lg border px-3 py-2 text-left transition-all lg:text-sm",
                 mode === m.id
                   ? "border-cyan/40 bg-cyan/10 text-cyan"
                   : "border-terminal-border bg-terminal-card text-terminal-muted hover:border-cyan/20 hover:text-terminal-text",
               )}
             >
-              {m.label}
+              <span className="block text-xs font-medium">{m.shortLabel}</span>
+              <span className="mt-0.5 hidden text-[10px] leading-snug opacity-80 xl:block">
+                {m.taskHint}
+              </span>
             </button>
           ))}
         </div>

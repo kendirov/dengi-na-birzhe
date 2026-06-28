@@ -16,7 +16,7 @@ interface TradeCalculatorProps {
 
 export function TradeCalculator({ instrument }: TradeCalculatorProps) {
   const [lots, setLots] = useState(1);
-  const [stepsMove, setStepsMove] = useState(5);
+  const [pointsMove, setPointsMove] = useState(5);
   const [orderType, setOrderType] = useState<OrderType>("limit");
 
   const result = useMemo(
@@ -27,12 +27,12 @@ export function TradeCalculator({ instrument }: TradeCalculatorProps) {
         spreadRub: instrument.spreadRub,
         lotSize: instrument.lotSize,
         lots,
-        stepsMove,
+        stepsMove: pointsMove,
         orderType,
         commissionLimitRate: instrument.commissionLimitRate,
         commissionMarketRate: instrument.commissionMarketRate,
       }),
-    [instrument, lots, stepsMove, orderType],
+    [instrument, lots, pointsMove, orderType],
   );
 
   return (
@@ -64,9 +64,10 @@ export function TradeCalculator({ instrument }: TradeCalculatorProps) {
           step={1}
         />
         <CalcField
-          label="Движение, шагов"
-          value={stepsMove}
-          onChange={setStepsMove}
+          label="Движение, пунктов"
+          hint="1 пункт = 1 минимальный шаг цены"
+          value={pointsMove}
+          onChange={setPointsMove}
           min={1}
           max={200}
           step={1}
@@ -98,7 +99,7 @@ export function TradeCalculator({ instrument }: TradeCalculatorProps) {
           highlight
         />
         <CalcRow
-          label="Breakeven, шагов"
+          label="Безубыток, пунктов"
           value={
             result.breakevenSteps !== null
               ? result.breakevenSteps.toFixed(2)
@@ -148,6 +149,7 @@ function OrderToggle({
 
 function CalcField({
   label,
+  hint,
   value,
   onChange,
   min,
@@ -155,6 +157,7 @@ function CalcField({
   step,
 }: {
   label: string;
+  hint?: string;
   value: number;
   onChange: (v: number) => void;
   min: number;
@@ -164,6 +167,9 @@ function CalcField({
   return (
     <label className="block">
       <span className="mb-1 block text-[10px] text-terminal-muted">{label}</span>
+      {hint && (
+        <span className="mb-1 block text-[9px] text-terminal-muted/80">{hint}</span>
+      )}
       <input
         type="number"
         value={value}

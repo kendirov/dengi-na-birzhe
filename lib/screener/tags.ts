@@ -65,7 +65,7 @@ export function buildVisualTags(
   if (inst.lotValue <= medians.lotValue * 0.7) tags.push("cheap-lot");
   if (inst.lotValue >= medians.lotValue * 1.5) tags.push("expensive-lot");
   if (inst.technicalScore >= 65) tags.push("technical");
-  if (inst.spreadTradingScore >= 60) tags.push("spread-trading");
+  if (inst.spreadTradable && inst.spreadTradingScore >= 60) tags.push("spread-trading");
   if (inst.inPlayScore >= 65) tags.push("in-play");
   if (inst.beginnerScore >= 65) tags.push("beginner");
   if (inst.dangerousScore >= 60) tags.push("dangerous");
@@ -96,7 +96,7 @@ export function computeMedians(instruments: EnrichedInstrument[]) {
 export function buildTypeLabels(inst: EnrichedInstrument): string[] {
   const labels: string[] = [];
   if (inst.technicalScore >= 60) labels.push("техничная");
-  if (inst.spreadTradingScore >= 60) labels.push("спредовая");
+  if (inst.spreadTradable && inst.spreadTradingScore >= 60) labels.push("спредовая");
   if (inst.inPlayScore >= 65) labels.push("в игре");
   if (inst.beginnerScore >= 65) labels.push("новичку");
   if (inst.dangerousScore >= 60) labels.push("опасная");

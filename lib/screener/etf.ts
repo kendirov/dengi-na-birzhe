@@ -15,9 +15,13 @@ export function isEtfOrFund(inst: { ticker: string; name: string }): boolean {
     "бпиф",
     "пиф",
     "фонд",
-    "индекс",
+    "inav",
     "index",
+    "индекс",
     "exchange-traded",
+    "etf-like",
+    "биржевой паев",
+    "управляемый фонд",
   ];
   if (namePatterns.some((p) => name.includes(p))) return true;
 

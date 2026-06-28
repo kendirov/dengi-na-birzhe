@@ -7,47 +7,65 @@ import type {
 } from "@/lib/types/screener";
 import { getModeScore } from "@/lib/types/screener";
 import { median } from "@/lib/screener/percentile";
-import { isFundLikeInstrument } from "@/lib/screener/etf";
+import {
+  buildSpreadUniverseContext,
+  isFundLikeInstrument,
+  isSpreadTradableCandidate,
+} from "@/lib/screener/spread-trading";
 
 export const SCREENER_MODES: {
   id: ScreenerMode;
   label: string;
+  shortLabel: string;
   description: string;
+  taskHint: string;
 }[] = [
   {
     id: "all",
     label: "Все",
-    description: "Полный список инструментов с расчётом торговых параметров.",
+    shortLabel: "Все",
+    description: "Общий список. Лучше начинать с конкретной задачи.",
+    taskHint: "Общий список — лучше выбрать задачу ниже.",
   },
   {
     id: "technical",
     label: "Техничные",
+    shortLabel: "Для графика",
     description:
-      "Для графика, уровней, high/low и импульсов. Обычно важны диапазон, ликвидность и понятное движение.",
+      "Ищем инструменты с движением, диапазоном и понятной структурой. Подходит для уровней, high/low, откатов и продолжения.",
+    taskHint: "График, уровни, high/low, откаты.",
   },
   {
     id: "spread",
     label: "Спредовые",
+    shortLabel: "Для стакана",
     description:
-      "Для работы с bid/ask. Важны ширина спреда, цена шага, комиссия, сделки и плотность стакана.",
+      "Ищем рабочий spread: несколько пунктов между bid/ask, сделки, оборот и понятная цена шага.",
+    taskHint: "Работа bid/ask, spread в пунктах.",
   },
   {
     id: "in-play",
     label: "В игре",
+    shortLabel: "Активные",
     description:
-      "Сейчас есть оборот, сделки и движение. Не сигнал, а список инструментов для наблюдения.",
+      "Ищем инструменты, где появились деньги, сделки и движение. Это список для наблюдения, не сигнал.",
+    taskHint: "Деньги и движение — список для наблюдения.",
   },
   {
     id: "beginner",
     label: "Для новичка",
+    shortLabel: "Для тренировки",
     description:
-      "Понятный лот, не экстремальный спред и достаточно сделок для тренировки.",
+      "Понятный лот, понятный шаг, не экстремальный spread, достаточно сделок.",
+    taskHint: "Тренировка лимиток и цена ошибки.",
   },
   {
     id: "dangerous",
     label: "Опасные",
+    shortLabel: "Не лезть без плана",
     description:
-      "Движение есть, но условия плохие: широкий спред, мало сделок, дорогой лот или высокая стоимость ошибки.",
+      "Движение есть, но условия плохие: широкий spread, мало сделок, дорогая ошибка или пустой стакан.",
+    taskHint: "Плохие условия — только с планом.",
   },
 ];
 
@@ -60,21 +78,11 @@ export const QUICK_FILTERS: { id: QuickFilterId; label: string }[] = [
   { id: "high-range", label: "Высокий диапазон" },
 ];
 
-function passesSpreadMode(inst: EnrichedInstrument): boolean {
-  if (isFundLikeInstrument(inst)) return false;
-  if (inst.spreadTradingScore < 58) return false;
-  if (inst.turnoverRub < 800_000 || inst.trades < 3000) return false;
-  if (inst.spreadRub === null || inst.spreadTicks === null) return false;
-  if (inst.spreadTicks < 2) return false;
-  if (inst.tickValueRub === null || inst.tickValueRub <= 0) return false;
-  if (inst.lotValue > 2_000_000) return false;
-  if (
-    inst.entryCostMarketTicks !== null &&
-    inst.entryCostMarketTicks > 12
-  ) {
-    return false;
-  }
-  return true;
+function passesSpreadMode(
+  inst: EnrichedInstrument,
+  spreadCtx: ReturnType<typeof buildSpreadUniverseContext>,
+): boolean {
+  return isSpreadTradableCandidate(inst, spreadCtx);
 }
 
 function passesBeginnerMode(inst: EnrichedInstrument): boolean {
@@ -91,7 +99,11 @@ function passesBeginnerMode(inst: EnrichedInstrument): boolean {
   return true;
 }
 
-function passesMode(inst: EnrichedInstrument, mode: ScreenerMode): boolean {
+function passesMode(
+  inst: EnrichedInstrument,
+  mode: ScreenerMode,
+  spreadCtx: ReturnType<typeof buildSpreadUniverseContext>,
+): boolean {
   switch (mode) {
     case "all":
       return true;
@@ -103,7 +115,7 @@ function passesMode(inst: EnrichedInstrument, mode: ScreenerMode): boolean {
         (inst.dayRangePct ?? 0) >= 1.2
       );
     case "spread":
-      return passesSpreadMode(inst);
+      return passesSpreadMode(inst, spreadCtx);
     case "in-play":
       return (
         inst.inPlayScore >= 55 &&
@@ -186,8 +198,10 @@ export function filterInstruments(
 
   const query = search.trim().toLowerCase();
 
+  const spreadCtx = buildSpreadUniverseContext(instruments);
+
   return instruments
-    .filter((inst) => passesMode(inst, mode))
+    .filter((inst) => passesMode(inst, mode, spreadCtx))
     .filter((inst) => {
       if (!query) return true;
       return (
@@ -215,7 +229,8 @@ export function countModeInstruments(
   instruments: EnrichedInstrument[],
   mode: ScreenerMode,
 ): number {
-  return instruments.filter((inst) => passesMode(inst, mode)).length;
+  const spreadCtx = buildSpreadUniverseContext(instruments);
+  return instruments.filter((inst) => passesMode(inst, mode, spreadCtx)).length;
 }
 
 export function sortInstruments(
