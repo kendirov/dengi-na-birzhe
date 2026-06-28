@@ -14,20 +14,22 @@ export type SortColumn =
   | "ticker"
   | "price"
   | "changePct"
-  | "lotSize"
   | "lotValue"
-  | "rubPerPointPerLot"
   | "tickSize"
   | "tickValueRub"
+  | "spreadTicks"
   | "spreadRub"
   | "spreadPct"
-  | "spreadTicks"
+  | "commissionLimitRub"
+  | "commissionMarketRub"
+  | "commissionLimitTicks"
+  | "commissionMarketTicks"
   | "turnoverRub"
   | "trades"
-  | "bigLotRub"
   | "dayRangePct"
   | "score"
-  | "entryCostRub";
+  | "entryCostRub"
+  | "rubPerPointPerLot";
 
 export type SortDirection = "asc" | "desc";
 

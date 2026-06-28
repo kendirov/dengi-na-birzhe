@@ -2,9 +2,9 @@
 
 @theme {
   --color-terminal-bg: #05070d;
-  --color-terminal-surface: #0b1220;
-  --color-terminal-card: #101827;
-  --color-terminal-border: #1a2744;
+  --color-terminal-surface: #07101c;
+  --color-terminal-card: #08111e;
+  --color-terminal-border: #141c2a;
   --color-terminal-muted: #64748b;
   --color-terminal-text: #e2e8f0;
   --color-cyan: #22d3ee;
@@ -34,8 +34,8 @@
 @layer utilities {
   .terminal-grid {
     background-image:
-      linear-gradient(rgba(34, 211, 238, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(34, 211, 238, 0.025) 1px, transparent 1px);
+      linear-gradient(rgba(34, 211, 238, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.018) 1px, transparent 1px);
     background-size: 40px 40px;
   }
 
@@ -110,7 +110,7 @@
   }
 
   .scrollbar-terminal::-webkit-scrollbar-thumb {
-    background: #1a2744;
+    background: #141c2a;
     border-radius: 3px;
   }
 }

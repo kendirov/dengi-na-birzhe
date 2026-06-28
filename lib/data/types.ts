@@ -83,6 +83,7 @@ export interface InstrumentScore {
 /** Full instrument for UI (screener, inspector) */
 export interface MarketInstrument extends MarketInstrumentRaw, InstrumentScore {
   lotValue: number;
+  /** @deprecated alias for tickValueRub — use tickValueRub in UI */
   rubPerPointPerLot: number;
   tickValueRub: number | null;
   spreadPct: number | null;
@@ -90,6 +91,16 @@ export interface MarketInstrument extends MarketInstrumentRaw, InstrumentScore {
   bigLotRub: number | null;
   spreadCostRub: number | null;
   entryCostRub: number | null;
+  commissionLimitRate: number;
+  commissionMarketRate: number;
+  commissionLimitRub: number;
+  commissionMarketRub: number;
+  commissionLimitTicks: number | null;
+  commissionMarketTicks: number | null;
+  entryCostLimitRub: number | null;
+  entryCostMarketRub: number | null;
+  entryCostLimitTicks: number | null;
+  entryCostMarketTicks: number | null;
   defaultCommissionRate: number;
   visualTags: VisualTag[];
   whyBullets: string[];
@@ -126,7 +137,11 @@ export interface GetMarketInstrumentsOptions {
   mode?: MarketDataMode;
 }
 
-export const DEFAULT_COMMISSION_RATE = 0.0004;
+export {
+  DEFAULT_COMMISSION_RATE,
+  DEFAULT_LIMIT_COMMISSION_RATE,
+  DEFAULT_MARKET_COMMISSION_RATE,
+} from "@/lib/screener/commission";
 
 /** @deprecated Use MarketInstrument */
 export type EnrichedInstrument = MarketInstrument;

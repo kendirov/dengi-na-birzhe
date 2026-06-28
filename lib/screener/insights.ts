@@ -28,7 +28,7 @@ export function buildWhyBullets(inst: EnrichedInstrument): string[] {
   }
 
   bullets.push(
-    `Пункт/лот ${formatRub(inst.rubPerPointPerLot)} — размер PnL на 1 пункт.`,
+    `Шаг/лот ${inst.tickValueRub !== null ? formatRub(inst.tickValueRub) : "—"} — рублей за 1 минимальный шаг цены.`,
   );
 
   if (inst.spreadPct !== null && inst.spreadRub !== null) {
@@ -89,7 +89,9 @@ export const DEFAULT_LESSON_TIPS = [
 export function buildWhyShort(inst: EnrichedInstrument): string {
   if (inst.inPlayScore >= 70) return "В игре: оборот и сделки";
   if (inst.technicalScore >= 70) return "Техничная: диапазон, ликвидность";
-  if (inst.spreadTradingScore >= 70) return "Спредовая: bid/ask, лента";
+  if (inst.spreadTradingScore >= 70) {
+    return "Спредовая: широкий спред + сделки + оборот";
+  }
   if (inst.beginnerScore >= 70) return "Новичку: понятный лот";
   if (inst.dangerousScore >= 65) return "Осторожно: плохие условия";
   if (!inst.hasHistoricalBaseline) return "Нет исторической базы";

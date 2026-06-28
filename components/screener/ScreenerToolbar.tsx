@@ -27,8 +27,6 @@ export function ScreenerToolbar({
   totalCount,
   displayedCount,
 }: ScreenerToolbarProps) {
-  const activeMode = SCREENER_MODES.find((m) => m.id === mode)!;
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -64,17 +62,14 @@ export function ScreenerToolbar({
         </div>
       </div>
 
-      <p className="text-sm text-terminal-muted">
-        {activeMode.description}
-        {displayedCount !== undefined &&
-          totalCount !== undefined &&
-          resultCount > displayedCount && (
-            <span className="ml-2 font-mono text-[11px] text-terminal-muted/80">
-              Показано {displayedCount} из {resultCount}
-              {resultCount !== totalCount && ` (всего ${totalCount})`}
-            </span>
-          )}
-      </p>
+      {displayedCount !== undefined &&
+        totalCount !== undefined &&
+        resultCount > displayedCount && (
+          <p className="text-[11px] text-terminal-muted">
+            Показано {displayedCount} из {resultCount}
+            {resultCount !== totalCount && ` (всего ${totalCount})`}
+          </p>
+        )}
 
       <div className="flex flex-wrap gap-1.5">
         {QUICK_FILTERS.map((f) => {

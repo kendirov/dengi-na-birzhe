@@ -12,16 +12,18 @@ import {
   filterInstruments,
   getTopInstruments,
   sortInstruments,
+  countModeInstruments,
 } from "@/lib/screener/filter-modes";
 import { ScreenerTable } from "@/components/ScreenerTable";
 import { InstrumentInspector } from "@/components/InstrumentInspector";
 import { ScreenerToolbar } from "@/components/screener/ScreenerToolbar";
-import { TopPickCard } from "@/components/screener/TopPickCard";
 import {
   DataStatusStrip,
   terminalStatusLabel,
 } from "@/components/screener/DataStatusStrip";
 import { ScreenerIntroPanel } from "@/components/screener/ScreenerIntroPanel";
+import { ReturnLogicPanel } from "@/components/screener/ReturnLogicPanel";
+import { ModeExplainerPanel } from "@/components/screener/ModeExplainerPanel";
 import { TerminalPanel } from "@/components/ui/TerminalPanel";
 import { useClientMoexFallback } from "@/lib/hooks/useClientMoexFallback";
 
@@ -58,7 +60,7 @@ export function ScreenerClient({
   const [mode, setMode] = useState<ScreenerMode>("technical");
   const [search, setSearch] = useState("");
   const [quickFilters, setQuickFilters] = useState<QuickFilterId[]>([]);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("rubPerPointPerLot");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("tickValueRub");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selected, setSelected] = useState<EnrichedInstrument | null>(
     instruments[0] ?? null,
@@ -90,6 +92,11 @@ export function ScreenerClient({
     [instruments, mode],
   );
 
+  const modeCount = useMemo(
+    () => countModeInstruments(instruments, mode),
+    [instruments, mode],
+  );
+
   const handleSort = useCallback(
     (column: SortColumn) => {
       if (sortColumn === column) {
@@ -112,7 +119,7 @@ export function ScreenerClient({
 
   const handleModeChange = useCallback((newMode: ScreenerMode) => {
     setMode(newMode);
-    setSortColumn("score");
+    setSortColumn(newMode === "spread" ? "spreadTicks" : "score");
     setSortDirection("desc");
   }, []);
 
@@ -121,6 +128,8 @@ export function ScreenerClient({
   return (
     <div className="space-y-4">
       <ScreenerIntroPanel />
+
+      <ReturnLogicPanel />
 
       <DataStatusStrip
         status={status}
@@ -153,32 +162,19 @@ export function ScreenerClient({
                 displayedCount={displayed.length}
               />
 
-              {topPicks.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-terminal-muted">
-                    Подборка
-                  </p>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {topPicks.map((inst, i) => (
-                      <TopPickCard
-                        key={inst.ticker}
-                        rank={i + 1}
-                        instrument={inst}
-                        mode={mode}
-                        selected={selected?.ticker === inst.ticker}
-                        onSelect={() => setSelected(inst)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              <ModeExplainerPanel
+                mode={mode}
+                topPicks={topPicks}
+                modeCount={modeCount}
+                selectedTicker={selected?.ticker}
+                onSelect={setSelected}
+              />
 
               <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
                 <ScreenerTable
                   instruments={displayed}
                   totalFiltered={sorted.length}
                   selectedTicker={selected?.ticker}
-                  mode={mode}
                   sortColumn={sortColumn}
                   sortDirection={sortDirection}
                   onSort={handleSort}

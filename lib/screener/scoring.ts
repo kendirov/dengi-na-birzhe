@@ -1,12 +1,14 @@
 import type { MarketInstrumentRaw } from "@/lib/data/types";
-import { DEFAULT_COMMISSION_RATE } from "@/lib/data/types";
+import { DEFAULT_MARKET_COMMISSION_RATE } from "@/lib/screener/commission";
 import { calculateEntryCost } from "@/lib/screener/calculator";
+import { isFundLikeInstrument } from "@/lib/screener/etf";
 import { clamp, percentileRank } from "@/lib/screener/percentile";
 
 interface ScoreContext {
   turnoverRanks: number[];
   tradesRanks: number[];
   spreadPctRanks: number[];
+  spreadRubRanks: number[];
   spreadTicksRanks: number[];
   lotValueRanks: number[];
   dayRangeRanks: number[];
@@ -48,6 +50,9 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
   const spreadPctValues = instruments
     .map((i) => spreadPctOf(i))
     .filter((v): v is number => v !== null);
+  const spreadRubValues = instruments
+    .map((i) => i.spreadRub)
+    .filter((v): v is number => v !== null);
   const spreadTicksValues = instruments
     .map((i) => spreadTicksOf(i))
     .filter((v): v is number => v !== null);
@@ -59,6 +64,9 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
   const tradesRanks = instruments.map((i) => i.trades);
   const spreadPctRanks = instruments.map(
     (i) => spreadPctOf(i) ?? medianOrZero(spreadPctValues),
+  );
+  const spreadRubRanks = instruments.map(
+    (i) => i.spreadRub ?? medianOrZero(spreadRubValues),
   );
   const spreadTicksRanks = instruments.map(
     (i) => spreadTicksOf(i) ?? medianOrZero(spreadTicksValues),
@@ -77,7 +85,7 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
       spread,
       i.lotSize,
       lotValueOf(i),
-      DEFAULT_COMMISSION_RATE,
+      DEFAULT_MARKET_COMMISSION_RATE,
     );
     return entryCostRub;
   });
@@ -86,6 +94,7 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
     turnoverRanks,
     tradesRanks,
     spreadPctRanks,
+    spreadRubRanks,
     spreadTicksRanks,
     lotValueRanks,
     dayRangeRanks,
@@ -93,6 +102,20 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
     entryCostRanks,
     hasSpreadData,
   };
+}
+
+function spreadTicksQualityScore(ticks: number | null): number {
+  if (ticks === null) return 20;
+  if (ticks < 1) return 15;
+  if (ticks < 2) return 35;
+  if (ticks <= 8) return clamp(72 + (ticks - 2) * 3.5);
+  if (ticks <= 15) return clamp(88 - (ticks - 8) * 4);
+  if (ticks <= 30) return clamp(58 - (ticks - 15) * 2);
+  return clamp(28 - (ticks - 30) * 0.5);
+}
+
+function lotValueQualityScore(lotValuePct: number): number {
+  return clamp(100 - Math.abs(lotValuePct - 45) * 1.2);
 }
 
 function medianOrZero(values: number[]): number {
@@ -132,6 +155,10 @@ export function computeScores(
     spreadTicksVal !== null
       ? percentileRank(spreadTicksVal, ctx.spreadTicksRanks)
       : 50;
+  const spreadRubRank =
+    inst.spreadRub !== null
+      ? percentileRank(inst.spreadRub, ctx.spreadRubRanks)
+      : 50;
   const lotValuePct = percentileRank(lotValueOf(inst), ctx.lotValueRanks);
   const dayRangePctRank = percentileRank(dayRangeOf(inst), ctx.dayRangeRanks);
   const tickVal = tickValueRubOf(inst);
@@ -144,7 +171,7 @@ export function computeScores(
       inst.spreadRub ?? 0,
       inst.lotSize,
       lotValueOf(inst),
-      DEFAULT_COMMISSION_RATE,
+      DEFAULT_MARKET_COMMISSION_RATE,
     ).entryCostRub,
     ctx.entryCostRanks,
   );
@@ -172,21 +199,45 @@ export function computeScores(
       zigzagScore * 0.2,
   );
 
+  const spreadRubScore = spreadRubRank;
+  const spreadTicksScore = spreadTicksQualityScore(spreadTicksVal);
+  const tradesScore = tradesPct;
+  const turnoverScore = turnoverPct;
+  const tickValueQuality = clamp(100 - Math.abs(tickValuePct - 45) * 1.5);
+  const lotValueQuality = lotValueQualityScore(lotValuePct);
+
+  const fundPenalty = isFundLikeInstrument(inst) ? 40 : 0;
+  const thinLiquidityPenalty =
+    tradesPct < 30 || turnoverPct < 25 ? 28 : tradesPct < 45 ? 14 : 0;
+  const extremeLotPenalty =
+    lotValuePct > 82 ? 18 : lotValuePct > 72 ? 10 : 0;
+  const hugeSpreadPenalty =
+    spreadTicksVal !== null && spreadTicksVal > 20
+      ? clamp((spreadTicksVal - 20) * 1.5)
+      : 0;
+
   const spreadTradingScore = clamp(
-    spreadPctRank * 0.3 +
-      spreadTicksRank * 0.25 +
-      tradesPct * 0.25 +
-      tickValuePct * 0.1 +
-      (100 - lotValuePct) * 0.1,
+    spreadTicksScore * 0.3 +
+      spreadRubScore * 0.15 +
+      tradesScore * 0.25 +
+      turnoverScore * 0.15 +
+      tickValueQuality * 0.1 +
+      lotValueQuality * 0.05 -
+      fundPenalty -
+      thinLiquidityPenalty -
+      extremeLotPenalty -
+      hugeSpreadPenalty,
   );
 
   const spreadPenalty = spreadPctRank > 75 ? (spreadPctRank - 75) * 1.5 : 0;
+  const beginnerEtfPenalty = isFundLikeInstrument(inst) ? 22 : 0;
   const beginnerScore = clamp(
     (100 - lotValuePct) * 0.3 +
       tradesPct * 0.25 +
       (100 - spreadPctRank) * 0.25 +
       liquidityScore * 0.2 -
-      spreadPenalty,
+      spreadPenalty -
+      beginnerEtfPenalty,
   );
 
   const hasBaseline = hasHistoricalBaseline(inst);

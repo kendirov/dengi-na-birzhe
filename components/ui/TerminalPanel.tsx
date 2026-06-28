@@ -26,7 +26,7 @@ export function TerminalPanel({
     >
       {scanLine && <div className="scan-line" aria-hidden />}
 
-      <div className="relative border-b border-terminal-border bg-terminal-surface/80 px-4 py-2.5">
+      <div className="relative border-b border-terminal-border bg-terminal-surface/60 px-4 py-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex gap-1.5">

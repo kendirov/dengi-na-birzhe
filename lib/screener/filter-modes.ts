@@ -7,6 +7,7 @@ import type {
 } from "@/lib/types/screener";
 import { getModeScore } from "@/lib/types/screener";
 import { median } from "@/lib/screener/percentile";
+import { isFundLikeInstrument } from "@/lib/screener/etf";
 
 export const SCREENER_MODES: {
   id: ScreenerMode;
@@ -59,6 +60,37 @@ export const QUICK_FILTERS: { id: QuickFilterId; label: string }[] = [
   { id: "high-range", label: "Высокий диапазон" },
 ];
 
+function passesSpreadMode(inst: EnrichedInstrument): boolean {
+  if (isFundLikeInstrument(inst)) return false;
+  if (inst.spreadTradingScore < 58) return false;
+  if (inst.turnoverRub < 800_000 || inst.trades < 3000) return false;
+  if (inst.spreadRub === null || inst.spreadTicks === null) return false;
+  if (inst.spreadTicks < 2) return false;
+  if (inst.tickValueRub === null || inst.tickValueRub <= 0) return false;
+  if (inst.lotValue > 2_000_000) return false;
+  if (
+    inst.entryCostMarketTicks !== null &&
+    inst.entryCostMarketTicks > 12
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function passesBeginnerMode(inst: EnrichedInstrument): boolean {
+  if (
+    inst.beginnerScore < 55 ||
+    inst.lotValue > 500_000 ||
+    (inst.spreadPct !== null && inst.spreadPct > 0.15)
+  ) {
+    return false;
+  }
+  if (isFundLikeInstrument(inst)) {
+    return inst.beginnerScore >= 72 && inst.trades >= 8000;
+  }
+  return true;
+}
+
 function passesMode(inst: EnrichedInstrument, mode: ScreenerMode): boolean {
   switch (mode) {
     case "all":
@@ -71,7 +103,7 @@ function passesMode(inst: EnrichedInstrument, mode: ScreenerMode): boolean {
         (inst.dayRangePct ?? 0) >= 1.2
       );
     case "spread":
-      return inst.spreadTradingScore >= 52 && inst.trades >= 8000;
+      return passesSpreadMode(inst);
     case "in-play":
       return (
         inst.inPlayScore >= 55 &&
@@ -82,11 +114,7 @@ function passesMode(inst: EnrichedInstrument, mode: ScreenerMode): boolean {
         (inst.dayRangePct ?? 0) >= 1.5
       );
     case "beginner":
-      return (
-        inst.beginnerScore >= 55 &&
-        inst.lotValue <= 500_000 &&
-        (inst.spreadPct === null || inst.spreadPct <= 0.15)
-      );
+      return passesBeginnerMode(inst);
     case "dangerous":
       return (
         inst.dangerousScore >= 52 ||
@@ -181,6 +209,13 @@ export function getTopInstruments(
   limit = 3,
 ): EnrichedInstrument[] {
   return filterInstruments(instruments, mode, "", []).slice(0, limit);
+}
+
+export function countModeInstruments(
+  instruments: EnrichedInstrument[],
+  mode: ScreenerMode,
+): number {
+  return instruments.filter((inst) => passesMode(inst, mode)).length;
 }
 
 export function sortInstruments(

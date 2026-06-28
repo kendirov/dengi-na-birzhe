@@ -54,17 +54,21 @@ export function TopPickCard({
 
         <div className="mb-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
           <div>
-            <span className="text-terminal-muted">Пункт/лот </span>
+            <span className="text-terminal-muted">Шаг/лот </span>
             <span className="font-mono font-bold text-cyan">
-              {formatRub(instrument.rubPerPointPerLot)}
+              {instrument.tickValueRub !== null
+                ? formatRub(instrument.tickValueRub)
+                : "—"}
             </span>
           </div>
           <div>
             <span className="text-terminal-muted">Спред </span>
             <span className="font-mono text-amber">
-              {instrument.spreadRub !== null
-                ? `${instrument.spreadRub.toFixed(2)} ₽`
-                : "—"}
+              {instrument.spreadTicks !== null
+                ? `${instrument.spreadTicks.toFixed(0)} шаг`
+                : instrument.spreadRub !== null
+                  ? `${instrument.spreadRub.toFixed(2)} ₽`
+                  : "—"}
             </span>
           </div>
           <div>

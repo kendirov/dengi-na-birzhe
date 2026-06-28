@@ -1,6 +1,8 @@
 import type { MarketInstrumentRaw, MarketInstrument } from "@/lib/data/types";
-import { DEFAULT_COMMISSION_RATE } from "@/lib/data/types";
-import { calculateEntryCost } from "@/lib/screener/calculator";
+import {
+  DEFAULT_MARKET_COMMISSION_RATE,
+  computeCommissionCosts,
+} from "@/lib/screener/commission";
 import { buildScoreContext, computeScores } from "@/lib/screener/scoring";
 import {
   buildTypeLabels,
@@ -23,9 +25,9 @@ function applyComputedFields(raw: MarketInstrumentRaw): MarketInstrumentRaw & {
   spreadTicks: number | null;
 } {
   const lotValue = raw.price * raw.lotSize;
-  const rubPerPointPerLot = raw.lotSize;
   const tickValueRub =
     raw.tickSize !== null ? raw.tickSize * raw.lotSize : null;
+  const rubPerPointPerLot = tickValueRub ?? 0;
   const bigLotRub =
     raw.avgTurnover20d !== null ? raw.avgTurnover20d * 0.01 : null;
   const spreadPct =
@@ -55,20 +57,21 @@ function enrichOne(
   const withFields = applyComputedFields(raw);
   const scores = computeScores(withFields, ctx);
 
-  const spreadRubForCost = withFields.spreadRub ?? 0;
-  const { spreadCostRub, entryCostRub } = calculateEntryCost(
-    spreadRubForCost,
-    withFields.lotSize,
-    withFields.lotValue,
-    DEFAULT_COMMISSION_RATE,
-  );
+  const costs = computeCommissionCosts({
+    lotValue: withFields.lotValue,
+    lotSize: withFields.lotSize,
+    spreadRub: withFields.spreadRub,
+    spreadTicks: withFields.spreadTicks,
+    tickValueRub: withFields.tickValueRub,
+  });
 
   return {
     ...withFields,
     ...scores,
-    spreadCostRub: withFields.spreadRub !== null ? spreadCostRub : null,
-    entryCostRub: withFields.spreadRub !== null ? entryCostRub : null,
-    defaultCommissionRate: DEFAULT_COMMISSION_RATE,
+    ...costs,
+    spreadCostRub: costs.spreadCostRub,
+    entryCostRub: costs.entryCostMarketRub,
+    defaultCommissionRate: DEFAULT_MARKET_COMMISSION_RATE,
     visualTags: [],
     whyBullets: [],
     riskBullets: [],

@@ -17,6 +17,11 @@ interface InstrumentInspectorProps {
   mode: ScreenerMode;
 }
 
+function formatTicks(value: number | null, digits = 1): string {
+  if (value === null) return "—";
+  return value.toFixed(digits);
+}
+
 export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
   if (!instrument) {
     return (
@@ -31,13 +36,11 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
   }
 
   const positive = (instrument.changePct ?? 0) >= 0;
-  const expensiveSpread =
-    instrument.spreadPct !== null && instrument.spreadPct >= 0.08;
+  const hasSpread = instrument.spreadRub !== null && instrument.spreadTicks !== null;
 
   return (
     <div className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-terminal-border bg-terminal-card lg:sticky lg:top-20">
       <div className="scrollbar-terminal overflow-y-auto p-4">
-        {/* 1. Тикер + название + тип */}
         <div className="mb-4 border-b border-terminal-border pb-4">
           <div className="mb-2 flex items-start justify-between gap-2">
             <div>
@@ -57,44 +60,34 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
           </div>
           <InstrumentTagList tags={instrument.visualTags} limit={4} />
           <p className="mt-2 text-[11px] text-terminal-muted">
-            Тип: {instrument.typeLabels.join(" · ")}
+            Тип: {instrument.typeLabels.join(" · ") || "—"}
           </p>
+          {instrument.whyShort && (
+            <p className="mt-1 text-[11px] text-terminal-muted/90">
+              {instrument.whyShort}
+            </p>
+          )}
         </div>
 
-        {/* 2. Главное */}
         <InspectorBlock title="Главное">
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <Metric label="Цена лота" value={formatRub(instrument.lotValue)} />
             <Metric
-              label="Пункт/лот"
-              value={formatRub(instrument.rubPerPointPerLot)}
-              highlight
-            />
-            <Metric
-              label="Цена шага"
+              label="Шаг/лот"
               value={
                 instrument.tickValueRub !== null
                   ? formatRub(instrument.tickValueRub)
                   : "—"
               }
+              highlight
             />
             <Metric
-              label="Спред ₽"
+              label="Шаг цены"
               value={
-                instrument.spreadRub !== null
-                  ? `${instrument.spreadRub.toFixed(2)} ₽`
+                instrument.tickSize !== null
+                  ? String(instrument.tickSize)
                   : "—"
               }
-              tone={expensiveSpread ? "amber" : undefined}
-            />
-            <Metric
-              label="Спред %"
-              value={
-                instrument.spreadPct !== null
-                  ? `${instrument.spreadPct.toFixed(3)}%`
-                  : "—"
-              }
-              tone={expensiveSpread ? "amber" : undefined}
             />
             <Metric
               label="Оборот"
@@ -106,10 +99,65 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
               value={formatNumber(instrument.trades)}
               tone="green"
             />
+            <Metric
+              label="Диапазон"
+              value={
+                instrument.dayRangePct !== null
+                  ? `${instrument.dayRangePct.toFixed(1)}%`
+                  : "—"
+              }
+            />
           </div>
         </InspectorBlock>
 
-        {/* 3. Почему подходит */}
+        <InspectorBlock title="Издержки входа">
+          {hasSpread ? (
+            <div className="space-y-2 text-[11px]">
+              <CostRow
+                label="Спред"
+                value={`${formatTicks(instrument.spreadTicks, 0)} шаг / ${instrument.spreadRub!.toFixed(2)} ₽ / ${instrument.spreadPct?.toFixed(3) ?? "—"}%`}
+              />
+              <CostRow
+                label="Комиссия лимит"
+                value={`${formatRub(instrument.commissionLimitRub)} / ${formatTicks(instrument.commissionLimitTicks)} шаг`}
+              />
+              <CostRow
+                label="Комиссия рынок"
+                value={`${formatRub(instrument.commissionMarketRub)} / ${formatTicks(instrument.commissionMarketTicks)} шаг`}
+              />
+              <CostRow
+                label="Вход лимиткой"
+                value={`${formatNullableCost(instrument.entryCostLimitRub)} / ${formatTicks(instrument.entryCostLimitTicks)} шаг`}
+                highlight={instrument.entryCostLimitTicks !== null && instrument.entryCostLimitTicks >= 5}
+              />
+              <CostRow
+                label="Вход рынком"
+                value={`${formatNullableCost(instrument.entryCostMarketRub)} / ${formatTicks(instrument.entryCostMarketTicks)} шаг`}
+                highlight={instrument.entryCostMarketTicks !== null && instrument.entryCostMarketTicks >= 5}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2 text-[11px] text-terminal-muted">
+              <p>Спред: нет данных</p>
+              <CostRow
+                label="Комиссия лимит"
+                value={`${formatRub(instrument.commissionLimitRub)} / ${formatTicks(instrument.commissionLimitTicks)} шаг`}
+              />
+              <CostRow
+                label="Комиссия рынок"
+                value={`${formatRub(instrument.commissionMarketRub)} / ${formatTicks(instrument.commissionMarketTicks)} шаг`}
+              />
+              <p className="text-[10px] leading-relaxed">
+                Комиссия считается только от цены лота
+              </p>
+            </div>
+          )}
+          <p className="mt-2 text-[10px] leading-relaxed text-terminal-muted">
+            Для спредовой торговли важно не только расстояние между bid/ask, но
+            и сколько шагов цены съедает комиссия.
+          </p>
+        </InspectorBlock>
+
         <InspectorBlock title="Почему подходит">
           <ul className="space-y-1.5 text-[11px] leading-relaxed text-terminal-text/85">
             {instrument.whyBullets.slice(0, 3).map((b) => (
@@ -121,7 +169,6 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
           </ul>
         </InspectorBlock>
 
-        {/* 4. Риск */}
         <InspectorBlock title="Риск">
           <ul className="space-y-1.5 text-[11px] leading-relaxed text-terminal-muted">
             {instrument.riskBullets.slice(0, 3).map((b) => (
@@ -133,7 +180,6 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
           </ul>
         </InspectorBlock>
 
-        {/* 5. Как использовать на занятии */}
         <InspectorBlock title="Как использовать на занятии">
           <ul className="space-y-1.5 text-[11px] leading-relaxed text-terminal-muted">
             {instrument.lessonTips.slice(0, 3).map((t) => (
@@ -145,11 +191,34 @@ export function InstrumentInspector({ instrument }: InstrumentInspectorProps) {
           </ul>
         </InspectorBlock>
 
-        {/* 6. Калькулятор */}
         <div className="mt-2 border-t border-terminal-border pt-4">
           <TradeCalculator instrument={instrument} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function formatNullableCost(value: number | null): string {
+  if (value === null) return "—";
+  return formatRub(value);
+}
+
+function CostRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex justify-between gap-2 rounded border border-terminal-border/50 bg-terminal-surface/30 px-2 py-1.5">
+      <span className="text-terminal-muted">{label}</span>
+      <span className={cn("font-mono text-right", highlight ? "text-red" : "text-terminal-text")}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -163,15 +232,13 @@ function Metric({
   label: string;
   value: string;
   highlight?: boolean;
-  tone?: "amber" | "green";
+  tone?: "green";
 }) {
   const valueClass = highlight
     ? "text-cyan font-bold"
-    : tone === "amber"
-      ? "text-amber font-semibold"
-      : tone === "green"
-        ? "text-green"
-        : "text-terminal-text";
+    : tone === "green"
+      ? "text-green"
+      : "text-terminal-text";
 
   return (
     <div className="rounded border border-terminal-border/60 bg-terminal-surface/40 px-2 py-1.5">
