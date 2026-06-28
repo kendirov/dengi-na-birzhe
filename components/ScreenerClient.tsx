@@ -127,7 +127,7 @@ export function ScreenerClient({
 
   return (
     <div className="space-y-4">
-      <ScreenerIntroPanel />
+      <ScreenerIntroPanel onModeSelect={handleModeChange} />
 
       <ReturnLogicPanel />
 
