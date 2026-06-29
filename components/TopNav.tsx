@@ -13,7 +13,7 @@ const navItems = [
   },
   {
     href: "/money-management",
-    label: "Риск4менеджмент",
+    label: "Рискменеджмент",
     match: (p: string) => p.startsWith("/money-management"),
   },
 ];
