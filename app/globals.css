@@ -113,4 +113,16 @@
     background: #141c2a;
     border-radius: 3px;
   }
+
+  /* Screener table — readable terminal density on 1440–1920px */
+  .screener-table {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  @media (min-width: 1536px) {
+    .screener-table {
+      font-size: 13px;
+    }
+  }
 }

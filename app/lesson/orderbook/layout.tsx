@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Стакан и лента",
-  description: "Bid, Ask, спред, лента сделок и кластера — интерактивный урок.",
+  description:
+    "Bid, ask, spread, лента сделок, лимитки и рыночные заявки.",
 };
 
 export default function OrderbookLessonLayout({

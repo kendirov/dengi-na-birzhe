@@ -1,0 +1,32 @@
+---
+description: UI expensive minimalism для trading dashboard
+globs: "**/*.{tsx,css}"
+alwaysApply: false
+---
+
+# UI — Expensive Minimalism
+
+## Принципы
+
+- Тёмный премиальный терминал (`#05070d`, cyan/green/amber акцents)
+- Высокая плотность информации без визуального мусора
+- Glassmorphism — только дозированно
+- Контраст и читаемость: таблица 12–13px, sticky header
+- **3 секунды:** где аномалия, где риск, где действие
+
+## Для трейдера, не для стартап-лендинга
+
+- Без hero-блоков на рабочих экранах
+- Без длинных маркетинговых текстов
+- Компактный верх скринера (<360px до таблицы)
+- Max-width контейнера ~1680px
+
+## Компоненты
+
+- Таблица: ticker cyan, spread/commission amber, selected row заметная
+- Инспектор: 320–340px, sticky, не съедает таблицу
+- Карточки: тёмный фон `#06080c`, тонкая border
+
+## Skill
+
+UI-полировка: `.cursor/skills/frontend-ui-polisher/`

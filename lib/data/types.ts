@@ -1,3 +1,5 @@
+import type { CommissionSource } from "@/lib/screener/commission";
+
 export type MarketDataSource = "mock" | "moex" | "fallback" | "error";
 
 export type MarketDataMode = "mock" | "live" | "fallback";
@@ -110,6 +112,10 @@ export interface MarketInstrument extends MarketInstrumentRaw, InstrumentScore {
   commissionMarketRub: number;
   commissionLimitTicks: number | null;
   commissionMarketTicks: number | null;
+  /** Ceil display points for UI (raw in commission*Ticks). */
+  commissionLimitPoints: number | null;
+  commissionMarketPoints: number | null;
+  commissionSource: CommissionSource;
   entryCostLimitRub: number | null;
   entryCostMarketRub: number | null;
   entryCostLimitTicks: number | null;
@@ -184,6 +190,9 @@ export {
   DEFAULT_COMMISSION_RATE,
   DEFAULT_LIMIT_COMMISSION_RATE,
   DEFAULT_MARKET_COMMISSION_RATE,
+  LIVEIG_LIMIT_COMMISSION_RATE,
+  LIVEIG_MARKET_COMMISSION_RATE,
+  type CommissionSource,
 } from "@/lib/screener/commission";
 
 /** @deprecated Use MarketInstrument */

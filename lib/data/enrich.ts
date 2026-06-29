@@ -2,7 +2,9 @@ import type { MarketInstrumentRaw, MarketInstrument } from "@/lib/data/types";
 import {
   DEFAULT_MARKET_COMMISSION_RATE,
   computeCommissionCosts,
+  mergeLiveInvestCommission,
 } from "@/lib/screener/commission";
+import type { LiveInvestCommissionMap } from "@/lib/screener/liveinvest-commission";
 import { buildScoreContext, computeScores } from "@/lib/screener/scoring";
 import {
   buildTypeLabels,
@@ -59,17 +61,28 @@ function applyComputedFields(raw: MarketInstrumentRaw): MarketInstrumentRaw & {
 function enrichOne(
   raw: MarketInstrumentRaw,
   ctx: ReturnType<typeof buildScoreContext>,
+  liveInvestMap?: LiveInvestCommissionMap,
 ): MarketInstrument {
   const withFields = applyComputedFields(raw);
   const scores = computeScores(withFields, ctx);
 
-  const costs = computeCommissionCosts({
+  const formula = computeCommissionCosts({
     lotValue: withFields.lotValue,
     lotSize: withFields.lotSize,
     spreadRub: withFields.spreadRub,
     spreadTicks: withFields.spreadTicks,
     tickValueRub: withFields.tickValueRub,
   });
+
+  const li = liveInvestMap?.get(raw.ticker.toUpperCase());
+  const costs = mergeLiveInvestCommission(
+    formula,
+    withFields.tickValueRub,
+    withFields.spreadRub,
+    withFields.spreadTicks,
+    withFields.lotSize,
+    li,
+  );
 
   return {
     ...withFields,
@@ -91,9 +104,12 @@ function enrichOne(
 
 export function enrichMarketInstruments(
   instruments: MarketInstrumentRaw[],
+  liveInvestMap?: LiveInvestCommissionMap,
 ): MarketInstrument[] {
   const ctx = buildScoreContext(instruments);
-  const enriched = instruments.map((inst) => enrichOne(inst, ctx));
+  const enriched = instruments.map((inst) =>
+    enrichOne(inst, ctx, liveInvestMap),
+  );
   const medians = computeMedians(enriched);
   const spreadCtx = buildOrderBookUniverseContext(enriched);
 

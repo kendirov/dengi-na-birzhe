@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/format";
+import { COURSE_URL, BRAND_TAGLINE, CONTENT_MAX_WIDTH } from "@/lib/constants/brand";
 
 const navItems = [
-  { href: "/screener", label: "Скринер", match: (p: string) => p === "/" || p.startsWith("/screener") },
-  { href: "/lesson/setup", label: "Первое занятие", match: (p: string) => p.startsWith("/lesson/setup") },
-  { href: "/lesson/orderbook", label: "Стакан и лента", match: (p: string) => p.startsWith("/lesson/orderbook") },
-  { href: "/lesson/density", label: "Плотности", match: (p: string) => p.startsWith("/lesson/density") },
+  {
+    href: "/screener",
+    label: "Скринер",
+    match: (p: string) => p === "/" || p.startsWith("/screener"),
+  },
+  {
+    href: "/money-management",
+    label: "Риск4менеджмент",
+    match: (p: string) => p.startsWith("/money-management"),
+  },
 ];
 
 export function TopNav() {
@@ -16,22 +23,31 @@ export function TopNav() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-cyan/10 bg-terminal-bg/95 backdrop-blur-lg">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-4 lg:px-8">
-        <Link href="/screener" className="group flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded border border-cyan/30 bg-cyan/5 font-mono text-xs font-bold text-cyan">
-            ML
+      <div
+        className="mx-auto flex h-14 items-center justify-between gap-4 px-4 lg:px-6"
+        style={{ maxWidth: CONTENT_MAX_WIDTH }}
+      >
+        <a
+          href={COURSE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex shrink-0 items-center gap-2.5"
+        >
+          <div className="flex h-7 w-7 items-center justify-center rounded border border-cyan/25 bg-cyan/5 font-mono text-sm text-cyan">
+            ₽
           </div>
           <div className="hidden sm:block">
-            <span className="text-sm font-semibold text-terminal-text">
-              Лаборатория рынка
-            </span>
-            <span className="ml-2 font-mono text-[10px] uppercase tracking-widest text-terminal-muted">
-              MOEX
+            <div className="text-[20px] font-semibold leading-tight tracking-tight">
+              <span className="text-terminal-text">Деньги </span>
+              <span className="text-green">на бирже</span>
+            </div>
+            <span className="block text-[10px] leading-tight text-terminal-muted">
+              {BRAND_TAGLINE}
             </span>
           </div>
-        </Link>
+        </a>
 
-        <nav className="flex items-center gap-1 overflow-x-auto scrollbar-terminal">
+        <nav className="flex items-center gap-0.5 overflow-x-auto scrollbar-terminal">
           {navItems.map((item) => {
             const isActive = item.match(pathname);
 
@@ -40,7 +56,7 @@ export function TopNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "whitespace-nowrap rounded px-3 py-1.5 text-xs font-medium transition-colors lg:text-sm",
+                  "whitespace-nowrap rounded px-2.5 py-1.5 text-xs font-medium transition-colors lg:px-3 lg:text-sm",
                   isActive
                     ? "bg-cyan/10 text-cyan"
                     : "text-terminal-muted hover:bg-terminal-surface hover:text-terminal-text",

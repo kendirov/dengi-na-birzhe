@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { MarketDataStatus, DataDiagnostics } from "@/lib/data/types";
 import { ClientTime } from "@/components/ui/ClientTime";
 import { cn } from "@/lib/utils/format";
+import { pluralizeStocks } from "@/lib/utils/pluralize";
 
 interface CompactDataStatusProps {
   status: MarketDataStatus;
@@ -72,7 +73,7 @@ function statusDisplay(
         dot: "green",
         line: (
           <>
-            MOEX ISS · {rowCount} акций · <ClientTime iso={status.updatedAt} />
+            MOEX ISS · {pluralizeStocks(rowCount)} · <ClientTime iso={status.updatedAt} />
           </>
         ),
       };

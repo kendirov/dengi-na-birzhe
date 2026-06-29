@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp/oauth"
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?read_only=true&project_ref=YOUR_PROJECT_REF&features=database,docs,development,debugging"
+    },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer YOUR_GITHUB_PAT"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "figma": {
+      "url": "https://mcp.figma.com/mcp"
+    },
+    "vercel": {
+      "url": "https://mcp.vercel.com"
+    },
+    "sentry": {
+      "url": "https://mcp.sentry.dev/mcp"
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "moex-market-data-mcp": {
+      "command": "node",
+      "args": ["./tools/mcp/moex-market-data/index.js"],
+      "env": {
+        "MOEX_BASE_URL": "https://iss.moex.com",
+        "MARKET_DATA_MODE": "live",
+        "MCP_READ_ONLY": "true"
+      }
+    },
+    "telegram-source-mcp": {
+      "command": "node",
+      "args": ["./tools/mcp/telegram-source/index.js"],
+      "env": {
+        "TELEGRAM_BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHANNEL_ID": "YOUR_CHANNEL_ID",
+        "MCP_READ_ONLY": "true"
+      }
+    }
+  }
+}

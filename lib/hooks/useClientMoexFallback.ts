@@ -11,6 +11,10 @@ import type {
 import { enrichMarketInstruments } from "@/lib/data/enrich";
 import { getMockRawInstruments } from "@/lib/data/mock-instruments";
 import { fetchMoexIssFromBrowser } from "@/lib/data/moex-browser";
+import {
+  deserializeLiveInvestMap,
+  type LiveInvestCommission,
+} from "@/lib/screener/liveinvest-commission";
 
 export interface ScreenerDataState {
   instruments: MarketInstrument[];
@@ -22,6 +26,7 @@ interface UseClientMoexFallbackOptions {
   dataMode: MarketDataMode;
   moexBaseUrl: string;
   moexTimeoutMs: number;
+  liveInvestCommissions?: Record<string, LiveInvestCommission>;
   initial: ScreenerDataState;
 }
 
@@ -41,8 +46,10 @@ function buildLiveState(
   errors: string[],
   fetchMs: number,
   fetchedAt: string,
+  liveInvestCommissions?: Record<string, LiveInvestCommission>,
 ): ScreenerDataState {
-  const rows = enrichMarketInstruments(raw);
+  const liMap = deserializeLiveInvestMap(liveInvestCommissions);
+  const rows = enrichMarketInstruments(raw, liMap);
   return {
     instruments: rows,
     status: {
@@ -83,9 +90,11 @@ function buildLiveState(
 function buildFallbackState(
   reason: string,
   fetchMs: number,
+  liveInvestCommissions?: Record<string, LiveInvestCommission>,
 ): ScreenerDataState {
+  const liMap = deserializeLiveInvestMap(liveInvestCommissions);
   const raw = getMockRawInstruments();
-  const rows = enrichMarketInstruments(raw);
+  const rows = enrichMarketInstruments(raw, liMap);
   return {
     instruments: rows,
     status: {
@@ -109,6 +118,7 @@ export function useClientMoexFallback({
   dataMode,
   moexBaseUrl,
   moexTimeoutMs,
+  liveInvestCommissions,
   initial,
 }: UseClientMoexFallbackOptions): ScreenerDataState & { isLoading: boolean } {
   const [state, setState] = useState(initial);
@@ -143,6 +153,7 @@ export function useClientMoexFallback({
             result.errors,
             Date.now() - started,
             result.fetchedAt,
+            liveInvestCommissions,
           ),
         );
       } catch (err) {
@@ -150,7 +161,7 @@ export function useClientMoexFallback({
 
         const reason = err instanceof Error ? err.message : String(err);
         if (dataMode === "fallback") {
-          setState(buildFallbackState(reason, Date.now() - started));
+          setState(buildFallbackState(reason, Date.now() - started, liveInvestCommissions));
         } else {
           setState({
             instruments: [],
@@ -180,7 +191,7 @@ export function useClientMoexFallback({
     return () => {
       cancelled = true;
     };
-  }, [dataMode, moexBaseUrl, moexTimeoutMs, serverNeedsFallback]);
+  }, [dataMode, moexBaseUrl, moexTimeoutMs, serverNeedsFallback, liveInvestCommissions]);
 
   return { ...state, isLoading };
 }

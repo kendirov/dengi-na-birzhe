@@ -31,6 +31,11 @@ yarn-error.log*
 # env files
 .env*.local
 
+# local MCP overrides with secrets (optional)
+.cursor/mcp.local.json
+# Active MCP config may contain API keys after ctx7 setup — do not commit
+.cursor/mcp.json
+
 # typescript
 *.tsbuildinfo
 .vercel

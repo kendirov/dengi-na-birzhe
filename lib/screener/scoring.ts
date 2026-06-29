@@ -248,18 +248,13 @@ export function computeScores(
   const tightSpread = tightSpreadQuality(inst, spreadPctRank);
 
   const fundPenalty = isFundLikeInstrument(inst) ? 55 : 0;
-  const noPricePenalty = inst.price <= 0 ? 45 : 0;
-  const noSpreadPenalty =
-    inst.spreadRub === null || spreadPctVal === null ? 10 : 0;
 
   const technicalScore = clamp(
-    tradesQuality * 0.35 +
+    tradesQuality * 0.3 +
       turnoverQuality * 0.25 +
-      rangeQuality * 0.25 +
+      rangeQuality * 0.3 +
       tightSpread * 0.15 -
-      fundPenalty -
-      noPricePenalty -
-      noSpreadPenalty,
+      fundPenalty,
   );
 
   const spreadTradingScore = calculateOrderBookScore(

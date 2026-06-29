@@ -60,8 +60,8 @@ export default function DensityLessonPage() {
   return (
     <LessonShell
       badge="LESSON 03"
-      title="Плотности и алгоритмы"
-      subtitle="Настоящие и ложные заявки — интерактивные сценарии"
+      title="Плотности и айсберги"
+      subtitle="Крупные заявки, удержание уровня, скрытый объём и реакция цены."
       lessonIndex={3}
       nav={{
         prev: { href: "/lesson/orderbook", label: "Стакан и лента" },

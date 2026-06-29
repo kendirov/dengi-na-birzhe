@@ -22,7 +22,7 @@ export default function GlobalError({
         }}
       >
         <div style={{ maxWidth: 420, textAlign: "center" }}>
-          <h1 style={{ fontSize: 18, marginBottom: 8 }}>Лаборатория рынка</h1>
+          <h1 style={{ fontSize: 18, marginBottom: 8 }}>Деньги на бирже</h1>
           <p style={{ fontSize: 14, color: "#94a3b8", marginBottom: 16 }}>
             Страница не загрузилась. Это не белый экран — просто сбой. Обновите или
             попробуйте снова.

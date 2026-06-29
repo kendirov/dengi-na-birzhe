@@ -12,11 +12,11 @@ export default function OrderbookLessonPage() {
     <LessonShell
       badge="LESSON 02"
       title="Стакан и лента"
-      subtitle="Перед сделкой через привод нужно понимать bid, ask, spread, ленту, лот, шаг цены и стоимость входа."
+      subtitle="Bid, ask, spread, лента сделок, лимитки и рыночные заявки."
       lessonIndex={2}
       nav={{
         prev: { href: "/lesson/setup", label: "Первое занятие" },
-        next: { href: "/lesson/density", label: "Плотности" },
+        next: { href: "/lesson/density", label: "Плотности и айсберги" },
       }}
     >
       <OrderBookSandbox />

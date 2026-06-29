@@ -57,3 +57,49 @@ export function formatPrice(value: number): string {
 export function cn(...classes: (string | false | undefined | null)[]): string {
   return classes.filter(Boolean).join(" ");
 }
+
+/** Commission rub in table — 2 decimals; min 0,01 when commission > 0. */
+export function formatCommissionRubDisplay(value: number): string {
+  if (value <= 0 || !Number.isFinite(value)) return "0,00";
+  const rounded = Math.round(value * 100) / 100;
+  if (value > 0 && rounded === 0) return "0,01";
+  const display = rounded > 0 && rounded < 0.01 ? 0.01 : rounded;
+  return display.toFixed(2).replace(".", ",");
+}
+
+/** @deprecated use formatCommissionRubDisplay in commission cells */
+export function formatCommissionRubValue(value: number): string {
+  return formatCommissionRubDisplay(value);
+}
+
+/** Single commission point — integer display, null → em dash */
+export function formatCommissionPointValue(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return String(Math.trunc(value));
+}
+
+/** Market (limit) commission points — e.g. "3 (1)" */
+export function formatCommissionPointsPair(
+  market: number | null,
+  limit: number | null,
+): string {
+  if (market === null && limit === null) return "—";
+  const m = formatCommissionPointValue(market);
+  const l = formatCommissionPointValue(limit);
+  if (market === null) return `— (${l})`;
+  if (limit === null) return m;
+  return `${m} (${l})`;
+}
+
+/** Market (limit) commission rub — e.g. "0,25 (0,03)" */
+export function formatCommissionRubPair(
+  marketRub: number,
+  limitRub: number,
+): string {
+  return `${formatCommissionRubValue(marketRub)} (${formatCommissionRubValue(limitRub)})`;
+}
+
+/** @deprecated use formatCommissionPointValue for display points */
+export function formatCommissionPoints(value: number | null): string {
+  return formatCommissionPointValue(value);
+}

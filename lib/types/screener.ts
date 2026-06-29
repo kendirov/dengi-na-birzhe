@@ -3,7 +3,9 @@ import type { MarketInstrument, ScreenerMode } from "@/lib/data/types";
 export type { ScreenerMode };
 
 export type QuickFilterId =
-  | "cheap-lot"
+  | "cheap-step-lot"
+  | "hide-illiquid"
+  | "cheap-and-liquid"
   | "many-trades"
   | "narrow-spread"
   | "wide-spread"
@@ -20,10 +22,8 @@ export type SortColumn =
   | "spreadTicks"
   | "spreadRub"
   | "spreadPct"
-  | "commissionLimitRub"
-  | "commissionMarketRub"
-  | "commissionLimitTicks"
-  | "commissionMarketTicks"
+  | "commissionRub"
+  | "commissionPoints"
   | "turnoverRub"
   | "trades"
   | "dayRangePct"

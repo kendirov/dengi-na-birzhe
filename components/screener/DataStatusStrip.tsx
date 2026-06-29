@@ -3,6 +3,7 @@
 import type { MarketDataStatus, DataDiagnostics } from "@/lib/data/types";
 import { ClientTime } from "@/components/ui/ClientTime";
 import { cn } from "@/lib/utils/format";
+import { pluralizeStocks } from "@/lib/utils/pluralize";
 
 interface DataStatusStripProps {
   status: MarketDataStatus;
@@ -57,7 +58,7 @@ function excludedFundsEtfs(diagnostics: DataDiagnostics): number {
 
 function rowCountLabel(status: MarketDataStatus, rowCount: number): string {
   if (status.source === "moex") {
-    return `${rowCount} акций`;
+    return pluralizeStocks(rowCount);
   }
   return `${rowCount} инструментов`;
 }

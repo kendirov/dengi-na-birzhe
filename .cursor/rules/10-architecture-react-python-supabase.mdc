@@ -1,0 +1,48 @@
+---
+description: Архитектура frontend, data layer, будущий Supabase/Python
+alwaysApply: true
+---
+
+# Архитектура
+
+## Фактический стек (аудит репозитория)
+
+| Слой | Технология | Путь |
+|------|------------|------|
+| Frontend | Next.js 15 App Router, React 19, TS | `app/`, `components/` |
+| Стили | Tailwind CSS 4 | `app/globals.css` |
+| Данные MOEX | Provider pattern, ISS adapter | `lib/data/` |
+| Скринер | Filters, scoring, enrich | `lib/screener/` |
+| Уроки | Interactive components | `components/lesson/` |
+| Shell | AppShell, TopNav | `components/` |
+
+**Python / Supabase в коде пока нет** — только шаблоны MCP и skills для будущего ScreenerPRO.
+
+## Frontend
+
+- Строгая типизация (`lib/types/`)
+- Компоненты по доменам: `screener/`, `lesson/`, `shell/`, `ui/`
+- Состояние скринера — локально в `ScreenerClient`, без лишнего global state
+- Переиспользуй `SectionPageShell`, `TerminalPanel`, `PlaceholderCard`
+- Не дублировать форматирование — `lib/utils/format.ts`
+
+## Data layer
+
+- Единая точка входа: `getMarketInstruments()` в `lib/data/provider.ts`
+- Режимы: `mock` | `live` | `fallback` — не ломать контракт `EnrichedInstrument`
+- MOEX: server (`moex-adapter.ts`) + browser fallback (`useClientMoexFallback`)
+- Новые источники — через adapter, не inline fetch в компонентах
+
+## Supabase (будущее)
+
+- Миграции только SQL-файлами в `supabase/migrations/`
+- RLS на всех публичных таблицах
+- Индексы + `EXPLAIN ANALYZE` перед merge
+- Rollback-plan в каждой миграции
+- Skill: `.cursor/skills/supabase-migration-safe/`
+
+## Изменения
+
+- Без скрытых breaking changes
+- Минимальный diff, следуй существующим паттернам
+- Build + lint после значимых изменений

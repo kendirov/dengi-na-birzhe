@@ -1,3 +1,5 @@
+import type { CommissionSource } from "@/lib/screener/commission";
+
 export type DriveTermId =
   | "ticker"
   | "instrument"
@@ -61,13 +63,37 @@ export const TABLE_HEADER_TOOLTIPS: Record<string, string> = {
   name: DRIVE_TERM_DESCRIPTIONS.instrument,
   lotValue: DRIVE_TERM_DESCRIPTIONS.lotValue,
   tickSize: DRIVE_TERM_DESCRIPTIONS.tickSize,
-  tickValueRub: DRIVE_TERM_DESCRIPTIONS.tickValue,
+  tickValueRub: "Стоимость одного минимального шага цены на 1 лот.",
   spreadTicks: DRIVE_TERM_DESCRIPTIONS.spread,
-  commissionLimitTicks: DRIVE_TERM_DESCRIPTIONS.commissionLimit,
-  commissionMarketTicks: DRIVE_TERM_DESCRIPTIONS.commissionMarket,
+  commissionLimitRub:
+    "Комиссия за лимитную заявку на 1 лот.",
+  commissionMarketRub:
+    "Комиссия за рыночную заявку на 1 лот.",
+  commissionRub:
+    "Рыночная комиссия, в скобках лимитная. На одну транзакцию одним лотом.",
+  commissionPoints:
+    "Сколько пунктов должен пройти инструмент, чтобы покрыть комиссию. Рыночная, в скобках лимитная.",
+  commissionLimitTicks:
+    "Сколько пунктов нужно пройти, чтобы отбить лимитную комиссию.",
+  commissionMarketTicks:
+    "Сколько пунктов нужно пройти, чтобы отбить рыночную комиссию.",
   turnoverRub: DRIVE_TERM_DESCRIPTIONS.turnover,
   trades: DRIVE_TERM_DESCRIPTIONS.trades,
   dayRangePct: DRIVE_TERM_DESCRIPTIONS.range,
 };
 
 export const STORAGE_KEY_DRIVE_BASICS = "marketlab_show_drive_basics";
+
+export function commissionTooltip(
+  source: CommissionSource,
+  unit: "rub" | "points",
+): string {
+  const prefix =
+    source === "liveinvest"
+      ? "Комиссия LiveInvesting. Рынок, в скобках лимит."
+      : "Оценка комиссии по ставке. Рынок, в скобках лимит.";
+  if (unit === "rub") {
+    return `${prefix} На одну транзакцию одним лотом.`;
+  }
+  return `${prefix} Сколько пунктов должен пройти инструмент, чтобы покрыть комиссию.`;
+}

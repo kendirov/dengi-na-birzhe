@@ -1,0 +1,41 @@
+---
+description: Рабочий процесс агента inspect → plan → implement → verify → report
+alwaysApply: true
+---
+
+# Agent Workflow
+
+## Цикл
+
+1. **Inspect** — прочитать релевантные файлы, не гадать
+2. **Plan** — короткий план (внутренне, не останавливаться на плане)
+3. **Implement** — минимальный безопасный diff
+4. **Verify** — build, lint, dev URL, MCP browser при UI
+5. **Report** — формат из `50-output-format-root-cause.mdc`
+
+## Большие задачи
+
+- Дробить на маленькие шаги
+- Не заявлять «готово» без проверки
+- Если тестов нет — manual QA checklist (`qa-verifier` skill)
+
+## Команды
+
+| Задача | Command |
+|--------|---------|
+| Новая фича | `.cursor/commands/build-feature.md` |
+| Ревью | `.cursor/commands/review-feature.md` |
+| Брифинг | `.cursor/commands/create-market-brief.md` |
+| Урок | `.cursor/commands/create-lesson.md` |
+| Слайд | `.cursor/commands/create-slide-block.md` |
+| UI QA | `.cursor/commands/verify-ui.md` |
+| Аудит | `.cursor/commands/audit-project.md` |
+
+## Subagents
+
+См. `.cursor/agents/` — architect, data-engineer, frontend-ui, verifier и др.
+
+## Dev/build
+
+- **Не** запускать `npm run build` параллельно с `npm run dev` — ломает CSS
+- После build — перезапустить dev

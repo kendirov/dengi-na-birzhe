@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Скринер",
   description:
-    "Интерактивный отбор акций MOEX по спреду, лоту, обороту и режиму торговли.",
+    "Интерактивное пособие для практикующих трейдеров: отбор акций, стакан, лента, плотности и риск.",
 };
 
 export default function ScreenerLayout({

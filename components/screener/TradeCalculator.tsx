@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import type { EnrichedInstrument } from "@/lib/types/instrument";
 import {
-  DEFAULT_LIMIT_COMMISSION_RATE,
-  DEFAULT_MARKET_COMMISSION_RATE,
+  LIVEIG_LIMIT_COMMISSION_RATE,
+  LIVEIG_MARKET_COMMISSION_RATE,
 } from "@/lib/screener/commission";
 import { calculateTrade, type OrderType } from "@/lib/screener/calculator";
 import { formatRub } from "@/lib/utils/format";
@@ -115,8 +115,8 @@ export function TradeCalculator({ instrument }: TradeCalculatorProps) {
         </p>
       )}
       <p className="mt-2 text-[10px] text-terminal-muted">
-        Лимит {DEFAULT_LIMIT_COMMISSION_RATE * 100}% · Рынок{" "}
-        {DEFAULT_MARKET_COMMISSION_RATE * 100}% — измените в настройках проекта
+        Лимит {(LIVEIG_LIMIT_COMMISSION_RATE * 100).toFixed(3)}% · Рынок{" "}
+        {(LIVEIG_MARKET_COMMISSION_RATE * 100).toFixed(3)}% (LiveInvestGroup)
       </p>
     </div>
   );

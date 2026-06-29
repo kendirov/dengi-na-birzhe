@@ -6,7 +6,12 @@ import type {
   SortDirection,
 } from "@/lib/types/screener";
 import { getModeScore } from "@/lib/types/screener";
-import { median } from "@/lib/screener/percentile";
+import { percentileAt } from "@/lib/screener/percentile";
+import {
+  isCheapAndLiquid,
+  isCheapPointValue,
+  isLiquid,
+} from "@/lib/screener/liquidity-filters";
 import {
   buildOrderBookUniverseContext,
   isFundLikeInstrument,
@@ -16,6 +21,39 @@ import {
   buildTrainingSelection,
   getTrainingInstruments,
 } from "@/lib/screener/training-picks";
+
+export interface FilterThresholds {
+  tradesP80: number;
+  tradesP50: number;
+  turnoverP80: number;
+  turnoverP40: number;
+  rangeP80: number;
+  spreadP20: number;
+  spreadP80: number;
+}
+
+export function buildFilterThresholds(
+  instruments: EnrichedInstrument[],
+): FilterThresholds {
+  const trades = instruments.map((i) => i.trades);
+  const turnoverRub = instruments.map((i) => i.turnoverRub);
+  const dayRange = instruments
+    .map((i) => i.dayRangePct)
+    .filter((v): v is number => v !== null);
+  const spreadPoints = instruments
+    .map((i) => i.spreadTicks)
+    .filter((v): v is number => v !== null);
+
+  return {
+    tradesP80: percentileAt(trades, 80),
+    tradesP50: percentileAt(trades, 50),
+    turnoverP80: percentileAt(turnoverRub, 80),
+    turnoverP40: percentileAt(turnoverRub, 40),
+    rangeP80: percentileAt(dayRange.length ? dayRange : [0], 80),
+    spreadP20: percentileAt(spreadPoints.length ? spreadPoints : [0], 20),
+    spreadP80: percentileAt(spreadPoints.length ? spreadPoints : [0], 80),
+  };
+}
 
 export const SCREENER_MODES: {
   id: ScreenerMode;
@@ -84,16 +122,73 @@ export const MAIN_SCREENER_MODES = SCREENER_MODES.filter((m) =>
   (["all", "technical", "spread"] as ScreenerMode[]).includes(m.id),
 );
 
+export const DEFAULT_SCREENER_QUICK_FILTERS: QuickFilterId[] = [
+  "many-trades",
+  "hide-illiquid",
+];
+export const DEFAULT_SCREENER_SORT_COLUMN: SortColumn = "trades";
+export const DEFAULT_SCREENER_SORT_DIRECTION: SortDirection = "desc";
 export { buildTrainingSelection, trainingMetaMap } from "@/lib/screener/training-picks";
 export type { TrainingPickMeta, TrainingRole } from "@/lib/screener/training-picks";
 
-export const QUICK_FILTERS: { id: QuickFilterId; label: string }[] = [
-  { id: "many-trades", label: "Много сделок" },
-  { id: "narrow-spread", label: "Узкий спред" },
-  { id: "wide-spread", label: "Широкий спред" },
-  { id: "big-turnover", label: "Большой оборот" },
-  { id: "high-range", label: "Высокий диапазон" },
+export const QUICK_FILTERS: {
+  id: QuickFilterId;
+  label: string;
+  tooltip: string;
+  primary?: boolean;
+}[] = [
+  {
+    id: "many-trades",
+    label: "Много сделок",
+    tooltip: "Верхние 20% по количеству сделок.",
+    primary: true,
+  },
+  {
+    id: "hide-illiquid",
+    label: "Скрыть неликвид",
+    tooltip:
+      "Убирает инструменты с оборотом меньше 3 млн ₽, малым числом сделок или плохими данными.",
+    primary: true,
+  },
+  {
+    id: "cheap-step-lot",
+    label: "Дешёвый шаг/лот",
+    tooltip:
+      "Шаг/лот ≤ 0,20 ₽. Удобнее набирать объём и точнее управлять риском.",
+    primary: true,
+  },
+  {
+    id: "cheap-and-liquid",
+    label: "Дешёвые и ликвидные",
+    tooltip:
+      "Шаг/лот ≤ 0,20 ₽ и оборот от 3 млн ₽. Убирает жёсткий неликвид.",
+    primary: true,
+  },
+  {
+    id: "big-turnover",
+    label: "Большой оборот",
+    tooltip: "Верхние 20% по обороту в рублях.",
+  },
+  {
+    id: "high-range",
+    label: "Высокий диапазон",
+    tooltip: "Верхние 20% по диапазону дня.",
+  },
+  {
+    id: "narrow-spread",
+    label: "Узкий спред",
+    tooltip: "Нижние 20% по spread в пунктах.",
+  },
+  {
+    id: "wide-spread",
+    label: "Широкий спред",
+    tooltip:
+      "Верхние 20% по spread в пунктах, но только среди живых инструментов.",
+  },
 ];
+
+export const PRIMARY_QUICK_FILTERS = QUICK_FILTERS.filter((f) => f.primary);
+export const SECONDARY_QUICK_FILTERS = QUICK_FILTERS.filter((f) => !f.primary);
 
 function passesTechnicalMode(inst: EnrichedInstrument): boolean {
   if (isFundLikeInstrument(inst)) return false;
@@ -162,36 +257,45 @@ function passesMode(
 function passesQuickFilter(
   inst: EnrichedInstrument,
   filter: QuickFilterId,
-  medians: Record<string, number>,
+  thresholds: FilterThresholds,
 ): boolean {
   switch (filter) {
-    case "cheap-lot":
-      return inst.lotValue <= medians.lotValue * 0.75;
+    case "cheap-step-lot":
+      return isCheapPointValue(inst);
+    case "hide-illiquid":
+      return isLiquid(inst);
+    case "cheap-and-liquid":
+      return isCheapAndLiquid(inst);
     case "many-trades":
-      return inst.trades >= medians.trades * 1.1;
+      return inst.trades >= thresholds.tradesP80;
+    case "big-turnover":
+      return inst.turnoverRub >= thresholds.turnoverP80;
+    case "high-range":
+      return inst.dayRangePct !== null && inst.dayRangePct >= thresholds.rangeP80;
     case "narrow-spread":
       return (
-        inst.spreadPct !== null &&
-        medians.spreadPct > 0 &&
-        inst.spreadPct <= medians.spreadPct * 0.85
+        inst.spreadTicks !== null && inst.spreadTicks <= thresholds.spreadP20
       );
     case "wide-spread":
       return (
-        inst.spreadPct !== null &&
-        medians.spreadPct > 0 &&
-        inst.spreadPct >= medians.spreadPct * 1.15
-      );
-    case "big-turnover":
-      return inst.turnoverRub >= medians.turnover * 1.1;
-    case "high-range":
-      return (
-        inst.dayRangePct !== null &&
-        medians.dayRange > 0 &&
-        inst.dayRangePct >= medians.dayRange * 1.1
+        inst.spreadTicks !== null &&
+        inst.spreadTicks >= thresholds.spreadP80 &&
+        inst.trades >= thresholds.tradesP50 &&
+        inst.turnoverRub >= thresholds.turnoverP40
       );
     default:
       return true;
   }
+}
+
+export function countQuickFilterMatches(
+  instruments: EnrichedInstrument[],
+  filter: QuickFilterId,
+): number {
+  const thresholds = buildFilterThresholds(instruments);
+  return instruments.filter((inst) =>
+    passesQuickFilter(inst, filter, thresholds),
+  ).length;
 }
 
 export function filterInstruments(
@@ -200,22 +304,7 @@ export function filterInstruments(
   search: string,
   quickFilters: QuickFilterId[],
 ): EnrichedInstrument[] {
-  const medians = {
-    lotValue: median(instruments.map((i) => i.lotValue)),
-    trades: median(instruments.map((i) => i.trades)),
-    spreadPct: median(
-      instruments
-        .map((i) => i.spreadPct)
-        .filter((v): v is number => v !== null),
-    ) || 0,
-    turnover: median(instruments.map((i) => i.turnoverRub)),
-    dayRange: median(
-      instruments
-        .map((i) => i.dayRangePct)
-        .filter((v): v is number => v !== null),
-    ) || 0,
-  };
-
+  const thresholds = buildFilterThresholds(instruments);
   const query = search.trim().toLowerCase();
 
   if (mode === "training") {
@@ -247,7 +336,7 @@ export function filterInstruments(
       );
     })
     .filter((inst) =>
-      quickFilters.every((f) => passesQuickFilter(inst, f, medians)),
+      quickFilters.every((f) => passesQuickFilter(inst, f, thresholds)),
     )
     .sort(
       (a, b) => getModeScore(b, mode) - getModeScore(a, mode),
@@ -296,6 +385,12 @@ export function sortInstruments(
     } else if (column === "ticker") {
       av = a.ticker;
       bv = b.ticker;
+    } else if (column === "commissionRub") {
+      av = a.commissionMarketRub;
+      bv = b.commissionMarketRub;
+    } else if (column === "commissionPoints") {
+      av = a.commissionMarketPoints;
+      bv = b.commissionMarketPoints;
     } else {
       av = a[column] as number | null;
       bv = b[column] as number | null;

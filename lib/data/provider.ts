@@ -13,6 +13,10 @@ import { getMarketDataConfig } from "@/lib/data/config";
 import { getMockRawInstruments } from "@/lib/data/mock-instruments";
 import { fetchMoexInstruments } from "@/lib/data/moex-adapter";
 import { enrichMarketInstruments } from "@/lib/data/enrich";
+import {
+  fetchLiveInvestCommissionMap,
+  type LiveInvestCommissionMap,
+} from "@/lib/server/liveinvest-characteristics";
 
 function buildStatus(
   partial: Omit<MarketDataStatus, "updatedAt"> & { updatedAt?: string },
@@ -72,9 +76,12 @@ function applyUniverseDiagnostics(
   };
 }
 
-function mockResult(diagnostics: DataDiagnostics): MarketInstrumentsResult {
+function mockResult(
+  diagnostics: DataDiagnostics,
+  liveInvestMap: LiveInvestCommissionMap,
+): MarketInstrumentsResult {
   const raw = getMockRawInstruments();
-  const rows = enrichMarketInstruments(raw);
+  const rows = enrichMarketInstruments(raw, liveInvestMap);
   return {
     rows,
     status: buildStatus({
@@ -94,9 +101,10 @@ function mockResult(diagnostics: DataDiagnostics): MarketInstrumentsResult {
 function fallbackResult(
   reason: string,
   diagnostics: DataDiagnostics,
+  liveInvestMap: LiveInvestCommissionMap,
 ): MarketInstrumentsResult {
   const raw = getMockRawInstruments();
-  const rows = enrichMarketInstruments(raw);
+  const rows = enrichMarketInstruments(raw, liveInvestMap);
   return {
     rows,
     status: buildStatus({
@@ -139,8 +147,9 @@ function liveResult(
   diagnostics: DataDiagnostics,
   updatedAt: string,
   universe: UniverseFilterStats | undefined,
+  liveInvestMap: LiveInvestCommissionMap,
 ): MarketInstrumentsResult {
-  const rows = enrichMarketInstruments(raw);
+  const rows = enrichMarketInstruments(raw, liveInvestMap);
   return {
     rows,
     status: buildStatus({
@@ -175,9 +184,11 @@ export async function getMarketInstruments(
   const started = Date.now();
   const diagnostics = emptyDiagnostics();
 
+  const { map: liveInvestMap } = await fetchLiveInvestCommissionMap();
+
   if (mode === "mock") {
     diagnostics.fetchMs = Date.now() - started;
-    return mockResult(diagnostics);
+    return mockResult(diagnostics, liveInvestMap);
   }
 
   try {
@@ -190,19 +201,25 @@ export async function getMarketInstruments(
     if (moex.rows.length === 0) {
       const reason = "MOEX ISS вернул 0 tradable stocks";
       if (mode === "fallback") {
-        return fallbackResult(reason, diagnostics);
+        return fallbackResult(reason, diagnostics, liveInvestMap);
       }
       return errorResult(reason, diagnostics);
     }
 
-    return liveResult(moex.rows, diagnostics, moex.fetchedAt, moex.universe);
+    return liveResult(
+      moex.rows,
+      diagnostics,
+      moex.fetchedAt,
+      moex.universe,
+      liveInvestMap,
+    );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     diagnostics.fetchMs = Date.now() - started;
     diagnostics.errors.push(reason);
 
     if (mode === "fallback") {
-      return fallbackResult(reason, diagnostics);
+      return fallbackResult(reason, diagnostics, liveInvestMap);
     }
 
     return errorResult(reason, diagnostics);

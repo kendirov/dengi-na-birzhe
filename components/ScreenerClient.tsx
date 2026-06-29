@@ -13,15 +13,66 @@ import {
   sortInstruments,
   buildTrainingSelection,
   trainingMetaMap,
+  countQuickFilterMatches,
+  QUICK_FILTERS,
+  DEFAULT_SCREENER_QUICK_FILTERS,
+  DEFAULT_SCREENER_SORT_COLUMN,
+  DEFAULT_SCREENER_SORT_DIRECTION,
 } from "@/lib/screener/filter-modes";
+import type { LiveInvestCommission } from "@/lib/screener/liveinvest-commission";
 import { ScreenerTable } from "@/components/ScreenerTable";
 import { InstrumentInspector } from "@/components/InstrumentInspector";
 import { ScreenerToolbar } from "@/components/screener/ScreenerToolbar";
 import { CompactDataStatus } from "@/components/screener/CompactDataStatus";
 import { ScreenerIntroPanel } from "@/components/screener/ScreenerIntroPanel";
+import { CourseLessonsStrip } from "@/components/screener/CourseLessonsStrip";
 import { useClientMoexFallback } from "@/lib/hooks/useClientMoexFallback";
 
 const TABLE_DISPLAY_LIMIT = 200;
+
+const VALID_QUICK_FILTERS = new Set<QuickFilterId>(
+  QUICK_FILTERS.map((f) => f.id),
+);
+
+const LEGACY_FILTER_ALIASES: Record<string, QuickFilterId> = {
+  "cheap-lot": "cheap-step-lot",
+};
+
+function readInitialQuickFilters(): QuickFilterId[] {
+  if (typeof window === "undefined") return [...DEFAULT_SCREENER_QUICK_FILTERS];
+  const params = new URLSearchParams(window.location.search);
+  const filterParam = params.get("filter");
+  if (filterParam) {
+    const ids = filterParam
+      .split(",")
+      .map((s) => s.trim())
+      .map((id) => LEGACY_FILTER_ALIASES[id] ?? id)
+      .filter((id): id is QuickFilterId =>
+        VALID_QUICK_FILTERS.has(id as QuickFilterId),
+      );
+    if (ids.length > 0) return ids;
+  }
+  return [...DEFAULT_SCREENER_QUICK_FILTERS];
+}
+
+function readInitialSort(): { column: SortColumn; direction: SortDirection } {
+  if (typeof window === "undefined") {
+    return {
+      column: DEFAULT_SCREENER_SORT_COLUMN,
+      direction: DEFAULT_SCREENER_SORT_DIRECTION,
+    };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const sort = params.get("sort");
+  const dir = params.get("dir");
+  if (sort === "trades" && (dir === "asc" || dir === "desc")) {
+    return { column: "trades", direction: dir };
+  }
+  return {
+    column: DEFAULT_SCREENER_SORT_COLUMN,
+    direction: DEFAULT_SCREENER_SORT_DIRECTION,
+  };
+}
 
 interface ScreenerClientProps {
   instruments: EnrichedInstrument[];
@@ -30,6 +81,7 @@ interface ScreenerClientProps {
   dataMode: MarketDataMode;
   moexBaseUrl: string;
   moexTimeoutMs: number;
+  liveInvestCommissions?: Record<string, LiveInvestCommission>;
 }
 
 export function ScreenerClient({
@@ -39,11 +91,16 @@ export function ScreenerClient({
   dataMode,
   moexBaseUrl,
   moexTimeoutMs,
+  liveInvestCommissions,
 }: ScreenerClientProps) {
+  const initialSort = useMemo(() => readInitialSort(), []);
+  const initialQuickFilters = useMemo(() => readInitialQuickFilters(), []);
+
   const { instruments, status, diagnostics, isLoading } = useClientMoexFallback({
     dataMode,
     moexBaseUrl,
     moexTimeoutMs,
+    liveInvestCommissions,
     initial: {
       instruments: initialInstruments,
       status: initialStatus,
@@ -53,31 +110,31 @@ export function ScreenerClient({
 
   const [mode, setMode] = useState<ScreenerMode>("all");
   const [search, setSearch] = useState("");
-  const [quickFilters, setQuickFilters] = useState<QuickFilterId[]>([]);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("tickValueRub");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [selected, setSelected] = useState<EnrichedInstrument | null>(
-    instruments[0] ?? null,
+  const [quickFilters, setQuickFilters] =
+    useState<QuickFilterId[]>(initialQuickFilters);
+  const [sortColumn, setSortColumn] = useState<SortColumn>(initialSort.column);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    initialSort.direction,
   );
+  const [selected, setSelected] = useState<EnrichedInstrument | null>(null);
 
   const trainingMeta = useMemo(
     () => trainingMetaMap(buildTrainingSelection(instruments)),
     [instruments],
   );
 
+  const filterCounts = useMemo(() => {
+    const counts: Partial<Record<QuickFilterId, number>> = {};
+    for (const f of QUICK_FILTERS) {
+      counts[f.id] = countQuickFilterMatches(instruments, f.id);
+    }
+    return counts;
+  }, [instruments]);
+
   const filtered = useMemo(
     () => filterInstruments(instruments, mode, search, quickFilters),
     [instruments, mode, search, quickFilters],
   );
-
-  useEffect(() => {
-    if (mode === "training" && filtered.length > 0) {
-      const inList = filtered.some((i) => i.ticker === selected?.ticker);
-      if (!inList) setSelected(filtered[0] ?? null);
-    } else if (!selected && instruments.length > 0) {
-      setSelected(instruments[0] ?? null);
-    }
-  }, [instruments, selected, mode, filtered]);
 
   const sorted = useMemo(() => {
     if (mode === "training") return filtered;
@@ -88,6 +145,20 @@ export function ScreenerClient({
     () => sorted.slice(0, TABLE_DISPLAY_LIMIT),
     [sorted],
   );
+
+  useEffect(() => {
+    if (mode === "training" && filtered.length > 0) {
+      const inList = filtered.some((i) => i.ticker === selected?.ticker);
+      if (!inList) setSelected(filtered[0] ?? null);
+      return;
+    }
+    if (sorted.length === 0) {
+      setSelected(null);
+      return;
+    }
+    const inList = selected && sorted.some((i) => i.ticker === selected.ticker);
+    if (!inList) setSelected(sorted[0] ?? null);
+  }, [sorted, selected, mode, filtered]);
 
   const handleSort = useCallback(
     (column: SortColumn) => {
@@ -118,19 +189,23 @@ export function ScreenerClient({
   const isErrorEmpty = status.source === "error" && instruments.length === 0;
 
   return (
-    <div className="space-y-3">
-      <ScreenerIntroPanel />
+    <div className="space-y-1.5">
+      <div className="relative z-0 space-y-1">
+        <ScreenerIntroPanel
+          statusSlot={
+            <CompactDataStatus
+              status={status}
+              diagnostics={diagnostics}
+              rowCount={instruments.length}
+              isLoading={isLoading}
+            />
+          }
+        />
+        <CourseLessonsStrip />
+      </div>
 
       <div className="rounded-lg border border-terminal-border/50 bg-[#06080c]">
-        <div className="flex justify-end border-b border-terminal-border/40 px-3 py-1.5">
-          <CompactDataStatus
-            status={status}
-            diagnostics={diagnostics}
-            rowCount={instruments.length}
-            isLoading={isLoading}
-          />
-        </div>
-        <div className="space-y-3 p-3 lg:p-4">
+        <div className="space-y-2 p-2.5 lg:p-3">
           {isLoading ? (
             <LoadingState />
           ) : isErrorEmpty ? (
@@ -147,9 +222,11 @@ export function ScreenerClient({
                 resultCount={sorted.length}
                 totalCount={instruments.length}
                 displayedCount={displayed.length}
+                filterCounts={filterCounts}
               />
 
-              <div className="grid gap-3 xl:grid-cols-[1fr_340px]">
+              <div className="grid min-w-0 items-start gap-2 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="min-w-0">
                 <ScreenerTable
                   instruments={displayed}
                   totalFiltered={sorted.length}
@@ -161,15 +238,18 @@ export function ScreenerClient({
                   onSort={handleSort}
                   onSelect={setSelected}
                 />
-                <InstrumentInspector
-                  instrument={selected}
-                  mode={mode}
-                  trainingMeta={
-                    mode === "training" && selected
-                      ? trainingMeta.get(selected.ticker)
-                      : undefined
-                  }
-                />
+                </div>
+                <div className="min-w-0 xl:max-w-[320px] 2xl:max-w-[340px]">
+                  <InstrumentInspector
+                    instrument={selected}
+                    mode={mode}
+                    trainingMeta={
+                      mode === "training" && selected
+                        ? trainingMeta.get(selected.ticker)
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             </>
           )}

@@ -249,10 +249,10 @@ export function calculateOrderBookScore(
   const noBidAskPenalty = !hasBidAsk(inst) || inst.spreadRub === null ? 40 : 0;
 
   return clamp(
-    tradesQuality * 0.35 +
+    tradesQuality * 0.4 +
       pointsQuality * 0.3 +
       turnoverQuality * 0.2 +
-      tickQuality * 0.1 +
+      tickQuality * 0.05 +
       commQuality * 0.05 -
       fundPenalty -
       deadBookPenalty -

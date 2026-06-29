@@ -13,9 +13,11 @@ import {
   getInstrumentDecision,
   type InstrumentDecisionStatus,
 } from "@/lib/screener/instrument-decision";
+import { isLowLiquidityWarning } from "@/lib/screener/liquidity-filters";
 import {
   formatPct,
   formatPrice,
+  formatCommissionRubDisplay,
   formatRub,
   formatNumber,
   cn,
@@ -56,7 +58,7 @@ const DECISION_STYLES: Record<
 export function InstrumentInspector({ instrument, mode, trainingMeta }: InstrumentInspectorProps) {
   if (!instrument) {
     return (
-      <div className="flex min-h-[480px] items-center justify-center rounded-lg border border-terminal-border bg-terminal-card p-6 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)]">
+      <div className="flex min-h-[240px] items-center justify-center rounded-lg border border-terminal-border bg-terminal-card p-4 lg:sticky lg:top-14 lg:z-10 lg:max-h-[calc(100vh-3.75rem)]">
         <p className="text-center text-sm text-terminal-muted">
           Выберите строку в таблице
           <br />
@@ -89,20 +91,21 @@ export function InstrumentInspector({ instrument, mode, trainingMeta }: Instrume
   const checklistTitle = isOrderBookMode
     ? "Чеклист для стакана"
     : "Что проверить в приводе";
+  const lowLiquidity = isLowLiquidityWarning(instrument);
 
   return (
-    <div className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-terminal-border bg-terminal-card lg:sticky lg:top-20">
-      <div className="scrollbar-terminal overflow-y-auto p-4">
-        <div className="mb-4 border-b border-terminal-border pb-4">
+    <div className="flex max-h-[calc(100vh-3.75rem)] flex-col overflow-hidden rounded-lg border border-terminal-border bg-terminal-card lg:sticky lg:top-14 lg:z-10">
+      <div className="scrollbar-terminal overflow-y-auto p-3">
+        <div className="mb-3 border-b border-terminal-border pb-3">
           <div className="mb-2 flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-mono text-xl font-bold text-cyan">
+              <h3 className="font-mono text-lg font-bold text-cyan">
                 {instrument.ticker}
               </h3>
-              <p className="text-xs text-terminal-muted">{instrument.name}</p>
+              <p className="text-[11px] text-terminal-muted">{instrument.name}</p>
             </div>
             <div className="text-right">
-              <p className="font-mono text-lg font-bold">
+              <p className="font-mono text-base font-bold">
                 {formatPrice(instrument.price)} ₽
               </p>
               <p className={cn("font-mono text-xs", positive ? "text-green" : "text-red")}>
@@ -111,6 +114,11 @@ export function InstrumentInspector({ instrument, mode, trainingMeta }: Instrume
             </div>
           </div>
           <InstrumentTagList tags={instrument.visualTags} limit={4} />
+          {lowLiquidity ? (
+            <p className="mt-2 rounded border border-amber/25 bg-amber/[0.06] px-2 py-1.5 text-[11px] text-amber">
+              Осторожно: низкий оборот или мало сделок.
+            </p>
+          ) : null}
         </div>
 
         {isTrainingMode && (
@@ -213,30 +221,42 @@ export function InstrumentInspector({ instrument, mode, trainingMeta }: Instrume
           </ul>
         </InspectorBlock>
 
+        <InspectorBlock title="Комиссия">
+          <div className="space-y-1.5 text-[11px]">
+            <CommissionRow
+              label="Рынок"
+              rub={instrument.commissionMarketRub}
+              points={instrument.commissionMarketPoints}
+            />
+            <CommissionRow
+              label="Лимит"
+              rub={instrument.commissionLimitRub}
+              points={instrument.commissionLimitPoints}
+            />
+            <CommissionRow
+              label="Шаг/лот"
+              rub={instrument.tickValueRub}
+              points={null}
+              rubOnly
+            />
+          </div>
+          <p className="mt-2 text-[10px] text-terminal-muted">
+            Пункты = комиссия ₽ / шаг/лот, округление вверх.
+          </p>
+          <p className="mt-1 text-[10px] text-terminal-muted/80">
+            Источник:{" "}
+            {instrument.commissionSource === "liveinvest"
+              ? "LiveInvesting"
+              : "расчёт"}
+          </p>
+        </InspectorBlock>
+
         <InspectorBlock title="Детали">
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <Metric label="Шаг цены" value={instrument.tickSize !== null ? String(instrument.tickSize) : "—"} />
             <Metric
               label="Спред, ₽"
               value={instrument.spreadRub !== null ? `${instrument.spreadRub.toFixed(2)} ₽` : "—"}
-              tone="amber"
-            />
-            <Metric
-              label="Ком. лимит, ₽"
-              value={formatRub(instrument.commissionLimitRub)}
-            />
-            <Metric
-              label="Ком. рынок, ₽"
-              value={formatRub(instrument.commissionMarketRub)}
-            />
-            <Metric
-              label="Ком. лимит, п."
-              value={formatPoints(instrument.commissionLimitTicks)}
-              tone="amber"
-            />
-            <Metric
-              label="Ком. рынок, п."
-              value={formatPoints(instrument.commissionMarketTicks)}
               tone="amber"
             />
             <Metric
@@ -269,6 +289,10 @@ export function InstrumentInspector({ instrument, mode, trainingMeta }: Instrume
               }
               highlight
             />
+            <p className="col-span-2 text-[10px] leading-snug text-terminal-muted">
+              Стоимость одного минимального шага цены на 1 лот. ≤ 0,20 ₽ —
+              удобнее контролировать риск и набирать объём.
+            </p>
             <Metric
               label="Спред, п."
               value={formatPoints(instrument.spreadTicks, 0)}
@@ -340,6 +364,45 @@ export function InstrumentInspector({ instrument, mode, trainingMeta }: Instrume
           <TradeCalculator instrument={instrument} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function CommissionRow({
+  label,
+  rub,
+  points,
+  rubOnly,
+}: {
+  label: string;
+  rub: number | null;
+  points: number | null;
+  rubOnly?: boolean;
+}) {
+  const rubText =
+    rub !== null
+      ? rubOnly
+        ? formatRub(rub)
+        : `${formatCommissionRubDisplay(rub)} ₽`
+      : "—";
+  const pointsText =
+    points !== null ? `${points} п.` : rubOnly ? null : "— п.";
+
+  return (
+    <div className="flex justify-between gap-2 rounded border border-terminal-border/50 bg-terminal-surface/30 px-2 py-1.5">
+      <span className="text-terminal-muted">{label}</span>
+      <span className="font-mono text-right text-terminal-text">
+        {rubOnly ? (
+          rubText
+        ) : (
+          <>
+            {rubText}
+            {pointsText !== null && (
+              <span className="text-amber/90"> / {pointsText}</span>
+            )}
+          </>
+        )}
+      </span>
     </div>
   );
 }

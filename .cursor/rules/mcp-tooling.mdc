@@ -1,0 +1,49 @@
+---
+description: Когда использовать MCP и Context7 в проекте «Деньги на бирже»
+alwaysApply: true
+---
+
+# MCP и Context7
+
+## Context7 — обязательно для внешних библиотек
+
+Перед кодом по **Next.js, React, Tailwind, Playwright, shadcn, Supabase, Vercel** — получай актуальную документацию через Context7. Не опирайся на устаревшие API из training data.
+
+- В промпте: `use context7` или library id, например `/vercel/next.js`
+- Инструменты: `resolve-library-id`, `query-docs`
+
+## Supabase MCP — только dev/test
+
+- Таблицы, миграции, SQL, TypeScript-типы, Edge Functions, advisors, logs
+- **Никогда** не подключать к production data
+- Использовать `read_only=true` (уже в конфиге)
+
+## GitHub MCP + Bugbot
+
+- PR, issues, commits, Actions, security findings — через GitHub MCP
+- Ревью PR: Bugbot в Cursor (`/review` в PR или настройки репозитория)
+- Репозиторий: `kendirov/dengi-na-birzhe`
+
+## Playwright MCP / Cursor Browser — UI и автотесты
+
+- Открывать `/screener`, кликать фильтры, проверять таблицу, консоль, network
+- Accessibility snapshots через Playwright MCP
+- Cursor Browser — навигация, формы, скриншоты
+
+## Figma MCP
+
+- Компоненты, variables, layout, frames → код
+- Не добавлять лишние icon-пакеты, если asset пришёл из Figma localhost URL
+
+## Vercel MCP
+
+- Проект: `dengi-na-birzhe` → https://dengi-na-birzhe.vercel.app/
+- Deployments, logs, env — через MCP после OAuth
+
+## Sentry MCP — prod-мониторинг (опционально)
+
+- Ошибки, traces, performance — после подключения OAuth
+
+## Notion MCP — курсы и контент (опционально)
+
+- Read/write workspace для уроков, ТЗ, контент-плана

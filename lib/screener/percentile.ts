@@ -4,6 +4,18 @@ export function percentileRank(value: number, values: number[]): number {
   return Math.round((below / values.length) * 100);
 }
 
+/** Value at percentile p (0–100). E.g. p=80 → threshold for top 20%. */
+export function percentileAt(values: number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (p / 100) * (sorted.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower]!;
+  const weight = index - lower;
+  return sorted[lower]! * (1 - weight) + sorted[upper]! * weight;
+}
+
 export function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);

@@ -35,8 +35,16 @@ function isBrokenCssCache() {
   return false;
 }
 
-if (isBrokenCssCache()) {
-  console.log("[dev] Clearing broken .next cache (CSS was missing)…");
+/** Production `next build` leaves BUILD_ID — reusing it in dev causes missing chunk errors. */
+function isProductionBuildCache() {
+  return fs.existsSync(path.join(NEXT_DIR, "BUILD_ID"));
+}
+
+if (isBrokenCssCache() || isProductionBuildCache()) {
+  const reason = isProductionBuildCache()
+    ? "production build cache (switching to dev)"
+    : "broken CSS cache";
+  console.log(`[dev] Clearing .next — ${reason}…`);
   fs.rmSync(NEXT_DIR, { recursive: true, force: true });
 }
 
