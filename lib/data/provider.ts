@@ -6,7 +6,9 @@ import type {
   MarketDataStatus,
   DataDiagnostics,
   CacheStatus,
+  UniverseDiagnostics,
 } from "@/lib/data/types";
+import type { UniverseFilterStats } from "@/lib/data/instrument-classifier";
 import { getMarketDataConfig } from "@/lib/data/config";
 import { getMockRawInstruments } from "@/lib/data/mock-instruments";
 import { fetchMoexInstruments } from "@/lib/data/moex-adapter";
@@ -37,6 +39,39 @@ function emptyDiagnostics(
   };
 }
 
+function applyUniverseDiagnostics(
+  diagnostics: DataDiagnostics,
+  universe: UniverseFilterStats | undefined,
+): DataDiagnostics {
+  if (!universe) {
+    return diagnostics;
+  }
+  const universeDiag: UniverseDiagnostics = {
+    raw: universe.raw,
+    afterParse: universe.afterParse,
+    stocks: universe.stocks,
+    funds: universe.funds,
+    etfs: universe.etfs,
+    unknown: universe.unknown,
+    noPrice: universe.noPrice,
+    noBidAsk: universe.noBidAsk,
+  };
+
+  return {
+    ...diagnostics,
+    rowsAfterParse: universe.afterParse,
+    rowsAfterUniverseFilter: universe.stocks,
+    excludedFunds: universe.funds,
+    excludedEtfs: universe.etfs,
+    excludedUnknown: universe.unknown,
+    excludedNoPrice: universe.noPrice,
+    excludedNoTicker: universe.noTicker,
+    universe: universeDiag,
+    sampleExcluded: universe.sampleExcluded,
+    sampleIncluded: universe.sampleIncluded,
+  };
+}
+
 function mockResult(diagnostics: DataDiagnostics): MarketInstrumentsResult {
   const raw = getMockRawInstruments();
   const rows = enrichMarketInstruments(raw);
@@ -51,6 +86,7 @@ function mockResult(diagnostics: DataDiagnostics): MarketInstrumentsResult {
       ...diagnostics,
       rowsRaw: raw.length,
       rowsNormalized: rows.length,
+      rowsAfterUniverseFilter: rows.length,
     },
   };
 }
@@ -73,6 +109,7 @@ function fallbackResult(
       ...diagnostics,
       rowsRaw: raw.length,
       rowsNormalized: rows.length,
+      rowsAfterUniverseFilter: rows.length,
       errors: [...diagnostics.errors, reason],
     },
   };
@@ -101,6 +138,7 @@ function liveResult(
   raw: MarketInstrumentRaw[],
   diagnostics: DataDiagnostics,
   updatedAt: string,
+  universe: UniverseFilterStats | undefined,
 ): MarketInstrumentsResult {
   const rows = enrichMarketInstruments(raw);
   return {
@@ -111,10 +149,13 @@ function liveResult(
       isDemo: false,
       updatedAt,
     }),
-    diagnostics: {
-      ...diagnostics,
-      rowsNormalized: rows.length,
-    },
+    diagnostics: applyUniverseDiagnostics(
+      {
+        ...diagnostics,
+        rowsNormalized: rows.length,
+      },
+      universe,
+    ),
   };
 }
 
@@ -147,14 +188,14 @@ export async function getMarketInstruments(
     diagnostics.errors.push(...moex.errors);
 
     if (moex.rows.length === 0) {
-      const reason = "MOEX ISS вернул 0 инструментов";
+      const reason = "MOEX ISS вернул 0 tradable stocks";
       if (mode === "fallback") {
         return fallbackResult(reason, diagnostics);
       }
       return errorResult(reason, diagnostics);
     }
 
-    return liveResult(moex.rows, diagnostics, moex.fetchedAt);
+    return liveResult(moex.rows, diagnostics, moex.fetchedAt, moex.universe);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     diagnostics.fetchMs = Date.now() - started;

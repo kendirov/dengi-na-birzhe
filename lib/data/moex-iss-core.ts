@@ -1,4 +1,11 @@
 import type { MarketInstrumentRaw, BaselineStatus } from "@/lib/data/types";
+import {
+  classifyMoexInstrument,
+  shouldIncludeInStockScreener,
+  emptyUniverseStats,
+  type UniverseFilterStats,
+  type UniverseSampleRow,
+} from "@/lib/data/instrument-classifier";
 
 export interface IssTable {
   columns: string[];
@@ -89,7 +96,18 @@ function resolveChangePct(row: RowRecord, price: number): number | null {
   return null;
 }
 
-function normalizeRow(row: RowRecord): MarketInstrumentRaw | null {
+function pushSample(
+  list: UniverseSampleRow[],
+  entry: UniverseSampleRow,
+  limit: number,
+): void {
+  if (list.length < limit) list.push(entry);
+}
+
+function normalizeRow(
+  row: RowRecord,
+  classification: ReturnType<typeof classifyMoexInstrument>,
+): MarketInstrumentRaw | null {
   const ticker = safeString(row.SECID);
   if (!ticker) return null;
 
@@ -166,16 +184,24 @@ function normalizeRow(row: RowRecord): MarketInstrumentRaw | null {
     categoryTags: [],
     explanation: `MOEX TQBR · ${ticker}`,
     risk: "medium",
+    instrumentClass: classification.instrumentClass,
+    isTradableStock: classification.isTradableStock,
+    excludeReason: classification.excludeReason,
   };
 }
 
-export function parseIssResponse(body: IssSecuritiesResponse): {
+export interface ParseIssResult {
   rows: MarketInstrumentRaw[];
   rowsRaw: number;
+  rowsAfterParse: number;
+  universe: UniverseFilterStats;
   errors: string[];
-} {
+}
+
+export function parseIssResponse(body: IssSecuritiesResponse): ParseIssResult {
   const parseErrors: string[] = [];
   const sec = body.securities;
+  const universe = emptyUniverseStats();
 
   if (!sec?.columns?.length || !sec.data?.length) {
     throw new Error("MOEX ISS: empty securities table in response");
@@ -190,13 +216,70 @@ export function parseIssResponse(body: IssSecuritiesResponse): {
   const merged = mergeBySecId(secRows, mdRows);
   const rows: MarketInstrumentRaw[] = [];
   let missingSpread = 0;
+  let rowsAfterParse = 0;
+
+  universe.raw = sec.data.length;
 
   for (const row of merged) {
-    const inst = normalizeRow(row);
-    if (!inst) continue;
+    const ticker = safeString(row.SECID);
+    const name =
+      safeString(row.SHORTNAME) ||
+      safeString(row.SECNAME) ||
+      ticker;
+
+    if (!ticker) {
+      universe.noTicker += 1;
+      continue;
+    }
+
+    const classification = classifyMoexInstrument(row);
+
+    if (!shouldIncludeInStockScreener(row, classification)) {
+      if (classification.instrumentClass === "fund") universe.funds += 1;
+      else if (classification.instrumentClass === "etf") universe.etfs += 1;
+      else universe.unknown += 1;
+
+      pushSample(universe.sampleExcluded, {
+        ticker,
+        name,
+        instrumentClass: classification.instrumentClass,
+        excludeReason: classification.excludeReason,
+      }, 12);
+      continue;
+    }
+
+    const inst = normalizeRow(row, {
+      ...classification,
+      isTradableStock: true,
+      excludeReason: null,
+    });
+
+    if (!inst) {
+      universe.noPrice += 1;
+      pushSample(universe.sampleExcluded, {
+        ticker,
+        name,
+        instrumentClass: classification.instrumentClass,
+        excludeReason: "нет цены (LAST/MARKETPRICE/PREVPRICE)",
+      }, 12);
+      continue;
+    }
+
+    rowsAfterParse += 1;
+
     if (inst.spreadRub === null) missingSpread += 1;
+
     rows.push(inst);
+    pushSample(universe.sampleIncluded, {
+      ticker: inst.ticker,
+      name: inst.name,
+      instrumentClass: inst.instrumentClass,
+    }, 12);
   }
+
+  universe.afterParse = rowsAfterParse;
+  universe.stocks = rows.length;
+  universe.noBidAsk = missingSpread;
 
   if (missingSpread > 0) {
     parseErrors.push(
@@ -204,11 +287,15 @@ export function parseIssResponse(body: IssSecuritiesResponse): {
     );
   }
 
-  const rowsRaw = sec.data.length;
-
   if (rows.length === 0) {
-    throw new Error("MOEX parser returned 0 instruments — check ISS schema");
+    throw new Error("MOEX parser returned 0 tradable stocks — check ISS schema");
   }
 
-  return { rows, rowsRaw, errors: parseErrors };
+  return {
+    rows,
+    rowsRaw: sec.data.length,
+    rowsAfterParse,
+    universe,
+    errors: parseErrors,
+  };
 }

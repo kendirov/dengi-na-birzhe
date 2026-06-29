@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { ScreenerClient } from "@/components/ScreenerClient";
+import { ScreenerErrorBoundary } from "@/components/ScreenerErrorBoundary";
 import { getMarketInstruments } from "@/lib/data/provider";
 import { getMarketDataConfig } from "@/lib/data/config";
 
@@ -10,15 +11,17 @@ export async function ScreenerScreen() {
 
   return (
     <AppShell fullWidth>
-      <div className="mx-auto max-w-[1800px] px-4 py-5 lg:px-6 lg:py-6">
-        <ScreenerClient
-          instruments={result.rows}
-          status={result.status}
-          diagnostics={result.diagnostics}
-          dataMode={config.mode}
-          moexBaseUrl={config.moexBaseUrl}
-          moexTimeoutMs={config.moexTimeoutMs}
-        />
+      <div className="mx-auto max-w-[1800px] px-4 py-3 lg:px-6 lg:py-4">
+        <ScreenerErrorBoundary>
+          <ScreenerClient
+            instruments={result.rows}
+            status={result.status}
+            diagnostics={result.diagnostics}
+            dataMode={config.mode}
+            moexBaseUrl={config.moexBaseUrl}
+            moexTimeoutMs={config.moexTimeoutMs}
+          />
+        </ScreenerErrorBoundary>
       </div>
     </AppShell>
   );

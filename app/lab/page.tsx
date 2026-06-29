@@ -4,8 +4,8 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { GlowPanel } from "@/components/GlowPanel";
 
 const pages = [
-  { href: "/", label: "Скринер (/)", public: true },
   { href: "/screener", label: "Скринер", public: true },
+  { href: "/lab/instrument-cycle", label: "Фазы инструмента", public: false },
   { href: "/lesson/setup", label: "Первое занятие", public: true },
   { href: "/lesson/orderbook", label: "Стакан и лента", public: true },
   { href: "/lesson/density", label: "Плотности", public: true },

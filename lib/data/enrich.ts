@@ -17,9 +17,10 @@ import {
   DEFAULT_LESSON_TIPS,
 } from "@/lib/screener/insights";
 import {
-  buildSpreadUniverseContext,
-  isSpreadTradableCandidate,
-} from "@/lib/screener/spread-trading";
+  buildOrderBookUniverseContext,
+  calculateOrderBookScore,
+  isOrderBookCandidate,
+} from "@/lib/screener/order-book";
 
 function applyComputedFields(raw: MarketInstrumentRaw): MarketInstrumentRaw & {
   lotValue: number;
@@ -94,12 +95,14 @@ export function enrichMarketInstruments(
   const ctx = buildScoreContext(instruments);
   const enriched = instruments.map((inst) => enrichOne(inst, ctx));
   const medians = computeMedians(enriched);
-  const spreadCtx = buildSpreadUniverseContext(enriched);
+  const spreadCtx = buildOrderBookUniverseContext(enriched);
 
   return enriched.map((inst) => {
-    const spreadTradable = isSpreadTradableCandidate(inst, spreadCtx);
+    const spreadTradable = isOrderBookCandidate(inst, spreadCtx);
+    const spreadTradingScore = calculateOrderBookScore(inst, spreadCtx);
     return {
       ...inst,
+      spreadTradingScore,
       spreadTradable,
       visualTags: buildVisualTags(inst, medians),
       typeLabels: buildTypeLabels(inst),

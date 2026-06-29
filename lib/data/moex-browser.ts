@@ -4,10 +4,13 @@ import {
   type IssSecuritiesResponse,
 } from "@/lib/data/moex-iss-core";
 import type { MarketInstrumentRaw } from "@/lib/data/types";
+import type { UniverseFilterStats } from "@/lib/data/instrument-classifier";
 
 export interface MoexBrowserFetchResult {
   rows: MarketInstrumentRaw[];
   rowsRaw: number;
+  rowsAfterParse: number;
+  universe: UniverseFilterStats;
   errors: string[];
   fetchedAt: string;
 }
@@ -41,6 +44,8 @@ export async function fetchMoexIssFromBrowser(
     return {
       rows: parsed.rows,
       rowsRaw: parsed.rowsRaw,
+      rowsAfterParse: parsed.rowsAfterParse,
+      universe: parsed.universe,
       errors: parsed.errors,
       fetchedAt: new Date().toISOString(),
     };

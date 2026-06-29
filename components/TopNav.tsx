@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/format";
 
 const navItems = [
-  { href: "/", label: "Скринер", match: (p: string) => p === "/" || p.startsWith("/screener") },
+  { href: "/screener", label: "Скринер", match: (p: string) => p === "/" || p.startsWith("/screener") },
   { href: "/lesson/setup", label: "Первое занятие", match: (p: string) => p.startsWith("/lesson/setup") },
   { href: "/lesson/orderbook", label: "Стакан и лента", match: (p: string) => p.startsWith("/lesson/orderbook") },
   { href: "/lesson/density", label: "Плотности", match: (p: string) => p.startsWith("/lesson/density") },
@@ -17,7 +17,7 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-50 border-b border-cyan/10 bg-terminal-bg/95 backdrop-blur-lg">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-4 lg:px-8">
-        <Link href="/" className="group flex items-center gap-3">
+        <Link href="/screener" className="group flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded border border-cyan/30 bg-cyan/5 font-mono text-xs font-bold text-cyan">
             ML
           </div>

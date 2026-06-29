@@ -12,7 +12,7 @@ const STEPS = [
   {
     n: 1,
     title: "Выбери задачу",
-    text: "Учусь, ищу движение, работаю спред или смотрю опасные инструменты.",
+    text: "Техничные для графика или «Для стакана» для bid/ask.",
     icon: (
       <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
         <rect x="2" y="3" width="5" height="4" rx="0.5" fill="rgba(34,211,238,0.25)" stroke="rgba(34,211,238,0.6)" strokeWidth="0.6" />

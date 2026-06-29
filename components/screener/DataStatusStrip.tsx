@@ -1,6 +1,7 @@
 "use client";
 
 import type { MarketDataStatus, DataDiagnostics } from "@/lib/data/types";
+import { ClientTime } from "@/components/ui/ClientTime";
 import { cn } from "@/lib/utils/format";
 
 interface DataStatusStripProps {
@@ -44,11 +45,37 @@ const toneStyles = {
 };
 
 const CACHE_LABELS: Record<DataDiagnostics["cache"], string> = {
-  hit: "кэш hit",
-  miss: "кэш miss",
-  stale: "кэш stale",
+  hit: "из кэша",
+  miss: "новый запрос",
+  stale: "устаревший кэш",
   none: "",
 };
+
+function excludedFundsEtfs(diagnostics: DataDiagnostics): number {
+  return (diagnostics.excludedFunds ?? 0) + (diagnostics.excludedEtfs ?? 0);
+}
+
+function rowCountLabel(status: MarketDataStatus, rowCount: number): string {
+  if (status.source === "moex") {
+    return `${rowCount} акций`;
+  }
+  return `${rowCount} инструментов`;
+}
+
+function universeTooltip(diagnostics: DataDiagnostics): string | undefined {
+  const u = diagnostics.universe;
+  if (!u) return undefined;
+  return [
+    `Сырых строк ISS: ${u.raw}`,
+    `После парсинга: ${u.afterParse}`,
+    `Акций в скринере: ${u.stocks}`,
+    `Исключено фондов: ${u.funds}`,
+    `Исключено ETF: ${u.etfs}`,
+    `Неизвестных: ${u.unknown}`,
+    `Без цены: ${u.noPrice}`,
+    `Без BID/OFFER: ${u.noBidAsk}`,
+  ].join(" · ");
+}
 
 export function DataStatusStrip({
   status,
@@ -64,11 +91,9 @@ export function DataStatusStrip({
         pulse: true,
       }
     : SOURCE_CONFIG[status.source];
-  const updated = new Date(status.updatedAt).toLocaleTimeString("ru-RU", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
   const cacheLabel = CACHE_LABELS[diagnostics.cache];
+  const excluded = excludedFundsEtfs(diagnostics);
+  const tooltip = universeTooltip(diagnostics);
 
   return (
     <div
@@ -78,6 +103,7 @@ export function DataStatusStrip({
       )}
       role="status"
       aria-live="polite"
+      title={tooltip}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -95,12 +121,18 @@ export function DataStatusStrip({
         </div>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-terminal-muted">
-          <span>{rowCount} инструментов</span>
-          <span>обновлено {updated}</span>
+          <span>{rowCountLabel(status, rowCount)}</span>
+          <ClientTime iso={status.updatedAt} prefix="обновлено " />
           {diagnostics.fetchMs > 0 && <span>{diagnostics.fetchMs} мс</span>}
           {cacheLabel && <span>{cacheLabel}</span>}
         </div>
       </div>
+
+      {status.source === "moex" && excluded > 0 && (
+        <p className="mt-1.5 text-[10px] opacity-75">
+          исключено {excluded} фондов/ETF
+        </p>
+      )}
 
       {status.fallbackReason && (
         <p className="mt-2 text-[11px] leading-relaxed opacity-90">
@@ -111,7 +143,7 @@ export function DataStatusStrip({
 
       {status.source === "mock" && (
         <p className="mt-2 text-[10px] opacity-75">
-          Режим MARKET_DATA_MODE=mock. Это не live-рынок.
+          Учебный набор — не биржевой поток.
         </p>
       )}
 

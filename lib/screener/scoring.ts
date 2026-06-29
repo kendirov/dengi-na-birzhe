@@ -2,11 +2,7 @@ import type { MarketInstrumentRaw } from "@/lib/data/types";
 import { DEFAULT_MARKET_COMMISSION_RATE } from "@/lib/screener/commission";
 import { calculateEntryCost } from "@/lib/screener/calculator";
 import { isFundLikeInstrument } from "@/lib/screener/etf";
-import {
-  calculateSpreadTradingScore,
-  type SpreadScoreInput,
-  type SpreadUniverseContext,
-} from "@/lib/screener/spread-trading";
+import { calculateOrderBookScore } from "@/lib/screener/order-book";
 import { clamp, percentileRank } from "@/lib/screener/percentile";
 
 interface ScoreContext {
@@ -109,12 +105,16 @@ function buildContext(instruments: MarketInstrumentRaw[]): ScoreContext {
   };
 }
 
-function toSpreadScoreInput(
+function toOrderBookScoreInput(
   inst: MarketInstrumentRaw,
   lotValue: number,
   tickVal: number | null,
   spreadTicksVal: number | null,
-): SpreadScoreInput {
+) {
+  const spreadPct =
+    inst.spreadRub !== null && inst.price > 0
+      ? (inst.spreadRub / inst.price) * 100
+      : null;
   return {
     ticker: inst.ticker,
     name: inst.name,
@@ -124,6 +124,7 @@ function toSpreadScoreInput(
     tickSize: inst.tickSize,
     tickValueRub: tickVal,
     spreadRub: inst.spreadRub,
+    spreadPct,
     spreadTicks: spreadTicksVal,
     turnoverRub: inst.turnoverRub,
     trades: inst.trades,
@@ -134,15 +135,41 @@ function toSpreadScoreInput(
   };
 }
 
-function spreadContextFromScoreContext(ctx: ScoreContext): SpreadUniverseContext {
+function orderBookContextFromScoreContext(ctx: ScoreContext) {
   return {
     tradesRanks: ctx.tradesRanks,
     turnoverRanks: ctx.turnoverRanks,
+    spreadPointsRanks: ctx.spreadTicksRanks,
     lotValueRanks: ctx.lotValueRanks,
-    spreadRubRanks: ctx.spreadRubRanks,
     tickValueRanks: ctx.tickValueRanks,
-    entryCostTicksRanks: ctx.entryCostRanks,
+    spreadPctRanks: ctx.spreadPctRanks,
   };
+}
+
+function tightSpreadQuality(
+  inst: MarketInstrumentRaw,
+  spreadPctRank: number,
+): number {
+  const points = spreadTicksOf(inst);
+  const spreadPct = spreadPctOf(inst);
+  const hasSpread = inst.spreadRub !== null && spreadPct !== null;
+
+  let score: number;
+  if (points !== null) {
+    if (points <= 1) score = 98;
+    else if (points <= 2) score = 92;
+    else if (points <= 4) score = 78;
+    else if (points <= 6) score = 62;
+    else if (points <= 10) score = 45;
+    else score = clamp(35 - (points - 10) * 2);
+  } else if (spreadPct !== null) {
+    score = clamp(100 - spreadPctRank);
+  } else {
+    score = 38;
+  }
+
+  if (!hasSpread) score = clamp(score * 0.72);
+  return clamp(score);
 }
 
 function medianOrZero(values: number[]): number {
@@ -215,16 +242,29 @@ export function computeScores(
     dayRangePctRank * 0.5 + turnoverPct * 0.25 + tradesPct * 0.25,
   );
 
+  const tradesQuality = tradesPct;
+  const turnoverQuality = turnoverPct;
+  const rangeQuality = dayRangePctRank;
+  const tightSpread = tightSpreadQuality(inst, spreadPctRank);
+
+  const fundPenalty = isFundLikeInstrument(inst) ? 55 : 0;
+  const noPricePenalty = inst.price <= 0 ? 45 : 0;
+  const noSpreadPenalty =
+    inst.spreadRub === null || spreadPctVal === null ? 10 : 0;
+
   const technicalScore = clamp(
-    (100 - spreadPctRank) * 0.25 +
-      liquidityScore * 0.3 +
-      dayRangePctRank * 0.25 +
-      zigzagScore * 0.2,
+    tradesQuality * 0.35 +
+      turnoverQuality * 0.25 +
+      rangeQuality * 0.25 +
+      tightSpread * 0.15 -
+      fundPenalty -
+      noPricePenalty -
+      noSpreadPenalty,
   );
 
-  const spreadTradingScore = calculateSpreadTradingScore(
-    toSpreadScoreInput(inst, lotValueOf(inst), tickVal, spreadTicksVal),
-    spreadContextFromScoreContext(ctx),
+  const spreadTradingScore = calculateOrderBookScore(
+    toOrderBookScoreInput(inst, lotValueOf(inst), tickVal, spreadTicksVal),
+    orderBookContextFromScoreContext(ctx),
   );
 
   const spreadPenalty = spreadPctRank > 75 ? (spreadPctRank - 75) * 1.5 : 0;

@@ -1,5 +1,5 @@
-import { ScreenerScreen } from "@/components/screener/ScreenerScreen";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <ScreenerScreen />;
+  redirect("/screener");
 }

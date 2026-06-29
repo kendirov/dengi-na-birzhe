@@ -8,10 +8,14 @@ import type {
 import { getModeScore } from "@/lib/types/screener";
 import { median } from "@/lib/screener/percentile";
 import {
-  buildSpreadUniverseContext,
+  buildOrderBookUniverseContext,
   isFundLikeInstrument,
-  isSpreadTradableCandidate,
-} from "@/lib/screener/spread-trading";
+  isOrderBookCandidate,
+} from "@/lib/screener/order-book";
+import {
+  buildTrainingSelection,
+  getTrainingInstruments,
+} from "@/lib/screener/training-picks";
 
 export const SCREENER_MODES: {
   id: ScreenerMode;
@@ -24,24 +28,30 @@ export const SCREENER_MODES: {
     id: "all",
     label: "Все",
     shortLabel: "Все",
-    description: "Общий список. Лучше начинать с конкретной задачи.",
-    taskHint: "Общий список — лучше выбрать задачу ниже.",
+    description: "Все доступные акции.",
+    taskHint: "",
+  },
+  {
+    id: "training",
+    label: "Обучение",
+    shortLabel: "Обучение",
+    description:
+      "Не весь рынок, а учебная подборка: несколько хороших, стаканных и опасных примеров — чтобы увидеть разницу.",
+    taskHint: "12 примеров: техничные, стакан, новичку, опасные.",
   },
   {
     id: "technical",
     label: "Техничные",
-    shortLabel: "Для графика",
-    description:
-      "Ищем инструменты с движением, диапазоном и понятной структурой. Подходит для уровней, high/low, откатов и продолжения.",
-    taskHint: "График, уровни, high/low, откаты.",
+    shortLabel: "Техничные",
+    description: "Хорошо двигаются по графику.",
+    taskHint: "",
   },
   {
     id: "spread",
-    label: "Спредовые",
+    label: "Для стакана",
     shortLabel: "Для стакана",
-    description:
-      "Ищем рабочий spread: несколько пунктов между bid/ask, сделки, оборот и понятная цена шага.",
-    taskHint: "Работа bid/ask, spread в пунктах.",
+    description: "Отрабатывают плотности, айсберги и bid/ask.",
+    taskHint: "",
   },
   {
     id: "in-play",
@@ -69,8 +79,15 @@ export const SCREENER_MODES: {
   },
 ];
 
+/** Режимы на основном экране /screener */
+export const MAIN_SCREENER_MODES = SCREENER_MODES.filter((m) =>
+  (["all", "technical", "spread"] as ScreenerMode[]).includes(m.id),
+);
+
+export { buildTrainingSelection, trainingMetaMap } from "@/lib/screener/training-picks";
+export type { TrainingPickMeta, TrainingRole } from "@/lib/screener/training-picks";
+
 export const QUICK_FILTERS: { id: QuickFilterId; label: string }[] = [
-  { id: "cheap-lot", label: "Дешёвый лот" },
   { id: "many-trades", label: "Много сделок" },
   { id: "narrow-spread", label: "Узкий спред" },
   { id: "wide-spread", label: "Широкий спред" },
@@ -78,11 +95,17 @@ export const QUICK_FILTERS: { id: QuickFilterId; label: string }[] = [
   { id: "high-range", label: "Высокий диапазон" },
 ];
 
+function passesTechnicalMode(inst: EnrichedInstrument): boolean {
+  if (isFundLikeInstrument(inst)) return false;
+  if (inst.trades <= 0 || inst.turnoverRub <= 0 || inst.price <= 0) return false;
+  return inst.technicalScore >= 40;
+}
+
 function passesSpreadMode(
   inst: EnrichedInstrument,
-  spreadCtx: ReturnType<typeof buildSpreadUniverseContext>,
+  orderBookCtx: ReturnType<typeof buildOrderBookUniverseContext>,
 ): boolean {
-  return isSpreadTradableCandidate(inst, spreadCtx);
+  return isOrderBookCandidate(inst, orderBookCtx);
 }
 
 function passesBeginnerMode(inst: EnrichedInstrument): boolean {
@@ -102,18 +125,15 @@ function passesBeginnerMode(inst: EnrichedInstrument): boolean {
 function passesMode(
   inst: EnrichedInstrument,
   mode: ScreenerMode,
-  spreadCtx: ReturnType<typeof buildSpreadUniverseContext>,
+  spreadCtx: ReturnType<typeof buildOrderBookUniverseContext>,
 ): boolean {
   switch (mode) {
     case "all":
       return true;
+    case "training":
+      return false;
     case "technical":
-      return (
-        inst.technicalScore >= 55 &&
-        inst.spreadScore >= 50 &&
-        inst.liquidityScore >= 50 &&
-        (inst.dayRangePct ?? 0) >= 1.2
-      );
+      return false;
     case "spread":
       return passesSpreadMode(inst, spreadCtx);
     case "in-play":
@@ -198,10 +218,27 @@ export function filterInstruments(
 
   const query = search.trim().toLowerCase();
 
-  const spreadCtx = buildSpreadUniverseContext(instruments);
+  if (mode === "training") {
+    let training = getTrainingInstruments(instruments);
+    if (query) {
+      training = training.filter(
+        (inst) =>
+          inst.ticker.toLowerCase().includes(query) ||
+          inst.name.toLowerCase().includes(query),
+      );
+    }
+    return training;
+  }
+
+  const spreadCtx = buildOrderBookUniverseContext(instruments);
 
   return instruments
-    .filter((inst) => passesMode(inst, mode, spreadCtx))
+    .filter((inst) => {
+      if (mode === "technical") {
+        return passesTechnicalMode(inst);
+      }
+      return passesMode(inst, mode, spreadCtx);
+    })
     .filter((inst) => {
       if (!query) return true;
       return (
@@ -222,6 +259,10 @@ export function getTopInstruments(
   mode: ScreenerMode,
   limit = 3,
 ): EnrichedInstrument[] {
+  if (mode === "training") {
+    const picks = buildTrainingSelection(instruments);
+    return picks.slice(0, limit).map((p) => p.instrument);
+  }
   return filterInstruments(instruments, mode, "", []).slice(0, limit);
 }
 
@@ -229,7 +270,13 @@ export function countModeInstruments(
   instruments: EnrichedInstrument[],
   mode: ScreenerMode,
 ): number {
-  const spreadCtx = buildSpreadUniverseContext(instruments);
+  if (mode === "training") {
+    return buildTrainingSelection(instruments).length;
+  }
+  if (mode === "technical") {
+    return instruments.filter((inst) => passesTechnicalMode(inst)).length;
+  }
+  const spreadCtx = buildOrderBookUniverseContext(instruments);
   return instruments.filter((inst) => passesMode(inst, mode, spreadCtx)).length;
 }
 

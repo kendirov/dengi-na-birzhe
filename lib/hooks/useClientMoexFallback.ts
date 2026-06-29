@@ -37,6 +37,7 @@ function shouldFetchFromBrowser(
 function buildLiveState(
   raw: MarketInstrumentRaw[],
   rowsRaw: number,
+  universe: import("@/lib/data/instrument-classifier").UniverseFilterStats,
   errors: string[],
   fetchMs: number,
   fetchedAt: string,
@@ -54,6 +55,25 @@ function buildLiveState(
       fetchMs,
       rowsRaw,
       rowsNormalized: rows.length,
+      rowsAfterParse: universe.afterParse,
+      rowsAfterUniverseFilter: universe.stocks,
+      excludedFunds: universe.funds,
+      excludedEtfs: universe.etfs,
+      excludedUnknown: universe.unknown,
+      excludedNoPrice: universe.noPrice,
+      excludedNoTicker: universe.noTicker,
+      universe: {
+        raw: universe.raw,
+        afterParse: universe.afterParse,
+        stocks: universe.stocks,
+        funds: universe.funds,
+        etfs: universe.etfs,
+        unknown: universe.unknown,
+        noPrice: universe.noPrice,
+        noBidAsk: universe.noBidAsk,
+      },
+      sampleExcluded: universe.sampleExcluded,
+      sampleIncluded: universe.sampleIncluded,
       cache: "none",
       errors: [...errors, "Источник: браузер (MOEX ISS CORS)"],
     },
@@ -95,7 +115,7 @@ export function useClientMoexFallback({
   const serverNeedsFallback = useRef(
     shouldFetchFromBrowser(dataMode, initial.status),
   ).current;
-  const [isLoading, setIsLoading] = useState(serverNeedsFallback);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!serverNeedsFallback) {
@@ -119,6 +139,7 @@ export function useClientMoexFallback({
           buildLiveState(
             result.rows,
             result.rowsRaw,
+            result.universe,
             result.errors,
             Date.now() - started,
             result.fetchedAt,

@@ -6,8 +6,18 @@ export type CacheStatus = "hit" | "miss" | "stale" | "none";
 
 export type BaselineStatus = "missing" | "live_current";
 
+export type InstrumentClass =
+  | "stock"
+  | "preferred_stock"
+  | "fund"
+  | "etf"
+  | "bond"
+  | "currency"
+  | "unknown";
+
 export type ScreenerMode =
   | "all"
+  | "training"
   | "technical"
   | "spread"
   | "in-play"
@@ -64,6 +74,9 @@ export interface MarketInstrumentRaw {
   categoryTags: InstrumentCategory[];
   explanation: string;
   risk: "low" | "medium" | "high";
+  instrumentClass: InstrumentClass;
+  isTradableStock: boolean;
+  excludeReason: string | null;
 }
 
 /** Computed scores (may override raw placeholders after enrichment) */
@@ -120,10 +133,38 @@ export interface MarketDataStatus {
   fallbackReason?: string;
 }
 
+export interface UniverseDiagnostics {
+  raw: number;
+  afterParse: number;
+  stocks: number;
+  funds: number;
+  etfs: number;
+  unknown: number;
+  noPrice: number;
+  noBidAsk: number;
+}
+
+export interface UniverseSampleInstrument {
+  ticker: string;
+  name: string;
+  instrumentClass: InstrumentClass;
+  excludeReason?: string | null;
+}
+
 export interface DataDiagnostics {
   fetchMs: number;
   rowsRaw: number;
   rowsNormalized: number;
+  rowsAfterParse?: number;
+  rowsAfterUniverseFilter?: number;
+  excludedFunds?: number;
+  excludedEtfs?: number;
+  excludedUnknown?: number;
+  excludedNoPrice?: number;
+  excludedNoTicker?: number;
+  universe?: UniverseDiagnostics;
+  sampleExcluded?: UniverseSampleInstrument[];
+  sampleIncluded?: UniverseSampleInstrument[];
   cache: CacheStatus;
   errors: string[];
 }

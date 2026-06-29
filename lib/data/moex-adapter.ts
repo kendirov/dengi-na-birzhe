@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import type { MarketInstrumentRaw, CacheStatus } from "@/lib/data/types";
 import type { MarketDataConfig } from "@/lib/data/config";
+import type { UniverseFilterStats } from "@/lib/data/instrument-classifier";
 import {
   TQBR_URL_SUFFIX,
   parseIssResponse,
@@ -16,6 +17,8 @@ export { mapTable, safeNumber, safeString, mergeBySecId };
 export interface MoexFetchResult {
   rows: MarketInstrumentRaw[];
   rowsRaw: number;
+  rowsAfterParse: number;
+  universe: UniverseFilterStats;
   errors: string[];
   cache: CacheStatus;
   fetchedAt: string;
@@ -78,13 +81,19 @@ async function fetchMoexUncached(
   const parsed = parseIssResponse(body);
   errors.push(...parsed.errors);
 
-  return { rows: parsed.rows, rowsRaw: parsed.rowsRaw, errors };
+  return {
+    rows: parsed.rows,
+    rowsRaw: parsed.rowsRaw,
+    rowsAfterParse: parsed.rowsAfterParse,
+    universe: parsed.universe,
+    errors,
+  };
 }
 
 const getCachedMoex = (config: MarketDataConfig) =>
   unstable_cache(
     () => fetchMoexUncached(config),
-    ["moex-tqbr-instruments", config.moexBaseUrl],
+    ["moex-tqbr-stocks-v2", config.moexBaseUrl],
     { revalidate: config.revalidateSeconds },
   );
 

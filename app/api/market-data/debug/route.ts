@@ -20,14 +20,19 @@ export async function GET(request: Request) {
       : undefined;
 
   const result = await getMarketInstruments(mode ? { mode } : undefined);
+  const { diagnostics } = result;
 
   return NextResponse.json({
     status: result.status,
-    diagnostics: result.diagnostics,
+    diagnostics,
     rowsCount: result.rows.length,
+    universe: diagnostics.universe ?? null,
+    sampleExcluded: diagnostics.sampleExcluded ?? [],
+    sampleIncluded: diagnostics.sampleIncluded ?? [],
     sample: result.rows.slice(0, 3).map((row) => ({
       ticker: row.ticker,
       name: row.name,
+      instrumentClass: row.instrumentClass,
       price: row.price,
       turnoverRub: row.turnoverRub,
       trades: row.trades,
@@ -35,5 +40,9 @@ export async function GET(request: Request) {
       baselineStatus: row.baselineStatus,
       hasHistoricalBaseline: row.hasHistoricalBaseline,
     })),
+    fundCheck: result.rows
+      .filter((r) => r.instrumentClass === "fund" || r.instrumentClass === "etf")
+      .slice(0, 5)
+      .map((r) => ({ ticker: r.ticker, name: r.name, instrumentClass: r.instrumentClass })),
   });
 }

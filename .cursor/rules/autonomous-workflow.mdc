@@ -22,6 +22,7 @@ alwaysApply: true
 - GitHub: kendirov/dengi-na-birzhe
 - Production: https://dengi-na-birzhe.vercel.app/
 - Данные: MOEX ISS, режим `MARKET_DATA_MODE=live` (браузерный fallback на Vercel)
+- **CSS:** не запускать build параллельно с dev — ломает стили. Используй `npm run dev` / `npm run build` из package.json; после build перезапусти dev.
 
 ## Формат ответов
 

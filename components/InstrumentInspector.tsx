@@ -2,12 +2,14 @@
 
 import type { EnrichedInstrument } from "@/lib/types/instrument";
 import type { ScreenerMode } from "@/lib/types/screener";
+import type { TrainingPickMeta } from "@/lib/screener/training-picks";
 import { InstrumentTagList } from "@/components/screener/InstrumentTag";
 import { TradeCalculator } from "@/components/screener/TradeCalculator";
 import { buildBeginnerExplanation } from "@/lib/screener/insights";
 import {
   buildErrorPriceSummary,
   DRIVE_CHECKLIST,
+  ORDER_BOOK_CHECKLIST,
   getInstrumentDecision,
   type InstrumentDecisionStatus,
 } from "@/lib/screener/instrument-decision";
@@ -22,6 +24,7 @@ import {
 interface InstrumentInspectorProps {
   instrument: EnrichedInstrument | null;
   mode: ScreenerMode;
+  trainingMeta?: TrainingPickMeta;
 }
 
 function formatPoints(value: number | null, digits = 1): string {
@@ -50,7 +53,7 @@ const DECISION_STYLES: Record<
   },
 };
 
-export function InstrumentInspector({ instrument, mode }: InstrumentInspectorProps) {
+export function InstrumentInspector({ instrument, mode, trainingMeta }: InstrumentInspectorProps) {
   if (!instrument) {
     return (
       <div className="flex min-h-[480px] items-center justify-center rounded-lg border border-terminal-border bg-terminal-card p-6 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)]">
@@ -64,13 +67,28 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
   }
 
   const positive = (instrument.changePct ?? 0) >= 0;
-  const decision = getInstrumentDecision(instrument);
+  const isTrainingMode = mode === "training" && trainingMeta;
+  const isOrderBookMode = mode === "spread";
+  const orderBookPick = isOrderBookMode && instrument.spreadTradable;
+  const decision = orderBookPick
+    ? {
+        status: "orderbook" as InstrumentDecisionStatus,
+        label: "Только через стакан",
+        message: `Спред ${instrument.spreadTicks?.toFixed(0) ?? "—"} пунктов — проверить bid/ask, ленту и плотности перед входом.`,
+      }
+    : getInstrumentDecision(instrument);
   const decisionStyle = DECISION_STYLES[decision.status];
   const errorPrice = buildErrorPriceSummary(instrument);
-  const whyBullets =
-    mode === "spread" && instrument.spreadTradable
-      ? buildBeginnerExplanation(instrument, "spread")
-      : buildBeginnerExplanation(instrument, mode);
+  const whyBullets = isTrainingMode
+    ? [trainingMeta.lesson]
+    : buildBeginnerExplanation(
+        instrument,
+        isOrderBookMode ? "spread" : mode,
+      );
+  const checklist = isOrderBookMode ? ORDER_BOOK_CHECKLIST : DRIVE_CHECKLIST;
+  const checklistTitle = isOrderBookMode
+    ? "Чеклист для стакана"
+    : "Что проверить в приводе";
 
   return (
     <div className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-terminal-border bg-terminal-card lg:sticky lg:top-20">
@@ -94,6 +112,32 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
           </div>
           <InstrumentTagList tags={instrument.visualTags} limit={4} />
         </div>
+
+        {isTrainingMode && (
+          <div className="mb-4 rounded border border-violet/25 bg-violet/[0.06] px-2.5 py-2">
+            <div className="mb-1.5 flex flex-wrap items-center gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-violet">
+                Учебный вывод
+              </p>
+              <span
+                className={cn(
+                  "rounded border px-1.5 py-0.5 text-[9px] font-medium",
+                  trainingMeta.verdict === "yes" && "border-green/30 text-green",
+                  trainingMeta.verdict === "caution" && "border-amber/30 text-amber",
+                  trainingMeta.verdict === "no" && "border-red/30 text-red",
+                )}
+              >
+                {trainingMeta.verdictLabel}
+              </span>
+              <span className="rounded border border-terminal-border/50 px-1.5 py-0.5 text-[9px] text-terminal-muted">
+                {trainingMeta.roleLabel}
+              </span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-terminal-text/90">
+              {trainingMeta.lesson}
+            </p>
+          </div>
+        )}
 
         <div
           className={cn(
@@ -158,9 +202,9 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
           </div>
         </InspectorBlock>
 
-        <InspectorBlock title="Что проверить в приводе">
+        <InspectorBlock title={checklistTitle}>
           <ul className="space-y-1 text-[10px] leading-snug text-terminal-muted">
-            {DRIVE_CHECKLIST.map((item) => (
+            {checklist.map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="mt-0.5 h-3 w-3 shrink-0 rounded border border-terminal-border/70 bg-[#080E18]" />
                 {item}
@@ -169,12 +213,55 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
           </ul>
         </InspectorBlock>
 
+        <InspectorBlock title="Детали">
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
+            <Metric label="Шаг цены" value={instrument.tickSize !== null ? String(instrument.tickSize) : "—"} />
+            <Metric
+              label="Спред, ₽"
+              value={instrument.spreadRub !== null ? `${instrument.spreadRub.toFixed(2)} ₽` : "—"}
+              tone="amber"
+            />
+            <Metric
+              label="Ком. лимит, ₽"
+              value={formatRub(instrument.commissionLimitRub)}
+            />
+            <Metric
+              label="Ком. рынок, ₽"
+              value={formatRub(instrument.commissionMarketRub)}
+            />
+            <Metric
+              label="Ком. лимит, п."
+              value={formatPoints(instrument.commissionLimitTicks)}
+              tone="amber"
+            />
+            <Metric
+              label="Ком. рынок, п."
+              value={formatPoints(instrument.commissionMarketTicks)}
+              tone="amber"
+            />
+            <Metric
+              label="Bid"
+              value={instrument.bid !== null ? formatPrice(instrument.bid) : "—"}
+              tone="green"
+            />
+            <Metric
+              label="Ask"
+              value={instrument.ask !== null ? formatPrice(instrument.ask) : "—"}
+              tone="amber"
+            />
+          </div>
+          {instrument.spreadRub === null && (
+            <p className="mt-2 text-[10px] text-amber/85">
+              Спред недоступен: MOEX не отдал bid/ask.
+            </p>
+          )}
+        </InspectorBlock>
+
         <InspectorBlock title="Главное">
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <Metric label="Цена лота" value={formatRub(instrument.lotValue)} />
             <Metric
               label="Шаг/лот"
-              title="Сколько рублей даёт 1 минимальный шаг цены при позиции 1 лот."
               value={
                 instrument.tickValueRub !== null
                   ? formatRub(instrument.tickValueRub)
@@ -183,26 +270,8 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
               highlight
             />
             <Metric
-              label="Шаг цены"
-              value={
-                instrument.tickSize !== null
-                  ? String(instrument.tickSize)
-                  : "—"
-              }
-            />
-            <Metric
-              label="Спред, пунктов"
-              title="Сколько минимальных шагов цены между bid и ask."
+              label="Спред, п."
               value={formatPoints(instrument.spreadTicks, 0)}
-              tone="amber"
-            />
-            <Metric
-              label="Спред, ₽"
-              value={
-                instrument.spreadRub !== null
-                  ? `${instrument.spreadRub.toFixed(2)} ₽`
-                  : "—"
-              }
               tone="amber"
             />
             <Metric
@@ -215,29 +284,19 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
               tone="amber"
             />
             <Metric
-              label="Ком. лимит, ₽ / п."
-              value={`${formatRub(instrument.commissionLimitRub)} / ${formatPoints(instrument.commissionLimitTicks)}`}
-            />
-            <Metric
-              label="Ком. рынок, ₽ / п."
-              value={`${formatRub(instrument.commissionMarketRub)} / ${formatPoints(instrument.commissionMarketTicks)}`}
-            />
-            <Metric
               label="Оборот"
               value={formatRub(instrument.turnoverRub, true)}
-              tone="green"
             />
+            <Metric label="Сделки" value={formatNumber(instrument.trades)} />
             <Metric
-              label="Сделки"
-              value={formatNumber(instrument.trades)}
-              tone="green"
+              label="Диапазон"
+              value={
+                instrument.dayRangePct !== null
+                  ? `${instrument.dayRangePct.toFixed(1)}%`
+                  : "—"
+              }
             />
           </div>
-          {instrument.spreadRub === null && (
-            <p className="mt-2 text-[10px] text-amber/85">
-              Спред недоступен: MOEX не отдал bid/ask по инструменту.
-            </p>
-          )}
           {!instrument.hasHistoricalBaseline && (
             <p className="mt-2 text-[10px] text-terminal-muted">
               Исторической базы нет — оценка по текущим оборотам и сделкам.
@@ -245,7 +304,17 @@ export function InstrumentInspector({ instrument, mode }: InstrumentInspectorPro
           )}
         </InspectorBlock>
 
-        <InspectorBlock title="Почему подходит">
+        <InspectorBlock
+          title={
+            isTrainingMode
+              ? "Сравнение"
+              : isOrderBookMode
+                ? "Почему для стакана"
+                : mode === "technical"
+                  ? "Почему техничный"
+                  : "Почему в списке"
+          }
+        >
           <ul className="space-y-1.5 text-[11px] leading-relaxed text-terminal-text/85">
             {whyBullets.map((b) => (
               <li key={b} className="flex gap-2">

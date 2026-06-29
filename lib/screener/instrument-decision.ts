@@ -119,6 +119,13 @@ export function getInstrumentDecision(
   };
 }
 
+export const ORDER_BOOK_CHECKLIST = [
+  "Проверить bid/ask",
+  "Проверить, не снялись ли плотности",
+  "Проверить, есть ли сделки в ленте",
+  "Не входить, если spread расширился перед входом",
+] as const;
+
 export const DRIVE_CHECKLIST = [
   "Bid/Ask живые, не пустые.",
   "Спред не расширился перед входом.",

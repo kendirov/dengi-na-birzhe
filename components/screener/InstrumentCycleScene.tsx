@@ -3,9 +3,10 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ScreenerMode } from "@/lib/types/screener";
 import {
-  CYCLE_PHASES,
+  CYCLE_PHASES_LIVE,
   CHART,
-  LEVELS,
+  CHART_SCALE,
+  LEVELS_Y,
   SCENE_CANDLES,
   getPhase,
   type CyclePhase,
@@ -16,8 +17,9 @@ import { cn } from "@/lib/utils/format";
 
 const MODE_LABELS: Record<ScreenerMode, string> = {
   all: "Все",
+  training: "Обучение",
   technical: "Техничные",
-  spread: "Спредовые",
+  spread: "Стакан",
   "in-play": "В игре",
   beginner: "Для новичка",
   dangerous: "Опасные",
@@ -42,27 +44,28 @@ const TONE_STROKE: Record<CyclePhase["tone"], string> = {
 };
 
 const CANDLE_UP = {
-  body: "rgba(34, 211, 238, 0.85)",
-  bodyDim: "rgba(34, 211, 238, 0.35)",
-  wick: "rgba(34, 211, 238, 0.65)",
-  wickDim: "rgba(34, 211, 238, 0.25)",
+  body: "rgba(34, 211, 238, 0.88)",
+  bodyDim: "rgba(34, 211, 238, 0.28)",
+  wick: "rgba(148, 163, 184, 0.55)",
+  wickDim: "rgba(148, 163, 184, 0.22)",
 };
 
 const CANDLE_DOWN = {
-  body: "rgba(248, 113, 113, 0.8)",
-  bodyDim: "rgba(248, 113, 113, 0.32)",
-  wick: "rgba(248, 113, 113, 0.6)",
-  wickDim: "rgba(248, 113, 113, 0.22)",
+  body: "rgba(248, 113, 113, 0.82)",
+  bodyDim: "rgba(248, 113, 113, 0.26)",
+  wick: "rgba(148, 163, 184, 0.5)",
+  wickDim: "rgba(148, 163, 184, 0.2)",
 };
 
-const CHART_BADGES = ["цена", "объём", "фазы", "возврат / невозврат"] as const;
+const VOL_NORMAL = "rgba(245, 158, 11, 0.45)";
+const VOL_HIGH = "rgba(245, 158, 11, 0.85)";
+const VOL_LOW = "rgba(245, 158, 11, 0.22)";
 
 interface InstrumentCycleSceneProps {
   activeMode?: ScreenerMode;
   onSelectMode?: (mode: ScreenerMode) => void;
 }
 
-/** @deprecated use onSelectMode */
 type LegacyProps = { onModeSelect?: (mode: ScreenerMode) => void };
 
 export function InstrumentCycleScene({
@@ -99,36 +102,24 @@ export function InstrumentCycleScene({
     <div className="mt-4 space-y-3">
       <ChartHeader active={active} highlightId={highlightId} />
 
-      <div className="overflow-x-auto scrollbar-terminal rounded-lg border border-terminal-border/60 bg-[#080E18]">
+      <div className="overflow-x-auto scrollbar-terminal rounded-lg border border-terminal-border/60 bg-[#04070D]">
         <svg
           viewBox={`0 0 ${CHART.width} ${CHART.height}`}
-          className="min-w-[720px] w-full h-auto"
+          className="min-w-[840px] w-full h-auto"
           role="img"
-          aria-label="Модель состояния инструмента"
+          aria-label="Учебный replay: фазы рынка"
           preserveAspectRatio="xMidYMid meet"
           onMouseLeave={() => {
             setHoverId(null);
             setTooltip(null);
           }}
         >
-          <defs>
-            <linearGradient id="volSpike" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="rgba(180, 130, 20, 0.4)" />
-              <stop offset="100%" stopColor="rgba(251, 191, 36, 0.95)" />
-            </linearGradient>
-            <linearGradient id="volNormal" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="rgba(180, 130, 20, 0.25)" />
-              <stop offset="100%" stopColor="rgba(251, 191, 36, 0.65)" />
-            </linearGradient>
-            <linearGradient id="volLow" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="rgba(120, 90, 20, 0.15)" />
-              <stop offset="100%" stopColor="rgba(180, 130, 20, 0.4)" />
-            </linearGradient>
-          </defs>
+          <rect x={0} y={0} width={CHART.width} height={CHART.height} fill="#070B12" />
 
           <ChartGrid />
+          <PriceScaleLabels />
 
-          {CYCLE_PHASES.map((phase) => (
+          {CYCLE_PHASES_LIVE.map((phase) => (
             <PhaseZone
               key={phase.id}
               phase={phase}
@@ -146,6 +137,7 @@ export function InstrumentCycleScene({
           ))}
 
           <LevelAnnotations highlightId={highlightId} />
+          <ConsolidationWedge highlightId={highlightId} />
 
           {realCandles.map((candle, i) => (
             <CandleShape
@@ -166,8 +158,6 @@ export function InstrumentCycleScene({
             />
           ))}
 
-          <PriceContour candles={realCandles} highlightId={highlightId} />
-
           {realCandles.map((candle, i) => (
             <VolumeBarShape
               key={`v-${i}`}
@@ -177,21 +167,21 @@ export function InstrumentCycleScene({
             />
           ))}
 
-          <VolumeSeparator />
+          <VolumeSeparator highlightId={highlightId} />
 
-          {CYCLE_PHASES.map((phase) => (
+          {CYCLE_PHASES_LIVE.map((phase) => (
             <text
               key={`label-${phase.id}`}
               x={(phase.xStart + phase.xEnd) / 2}
-              y={28}
+              y={18}
               textAnchor="middle"
               fill={
                 highlightId === phase.id
                   ? "rgba(226, 232, 240, 0.95)"
-                  : "rgba(100, 116, 139, 0.7)"
+                  : "rgba(100, 116, 139, 0.65)"
               }
               fontSize={10}
-              fontWeight={activeId === phase.id ? 600 : 400}
+              fontWeight={highlightId === phase.id ? 600 : 400}
               className="pointer-events-none select-none"
             >
               {phase.title}
@@ -211,9 +201,9 @@ export function InstrumentCycleScene({
           {realCandles.map((candle, i) => (
             <rect
               key={`hit-${i}`}
-              x={candle.cx - CHART.candleWidth}
+              x={candle.cx - CHART.candleWidth - 2}
               y={CHART.priceTop}
-              width={CHART.candleWidth * 2}
+              width={CHART.candleWidth * 2 + 4}
               height={CHART.volumeBottom - CHART.priceTop}
               fill="transparent"
               className="cursor-pointer"
@@ -232,7 +222,7 @@ export function InstrumentCycleScene({
       </div>
 
       <div className="flex gap-1 overflow-x-auto scrollbar-terminal pb-1 md:hidden">
-        {CYCLE_PHASES.map((phase) => (
+        {CYCLE_PHASES_LIVE.map((phase) => (
           <PhaseTab
             key={phase.id}
             phase={phase}
@@ -261,57 +251,85 @@ function ChartHeader({
   const shown = highlightId !== active.id ? getPhase(highlightId) : active;
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-2">
+      <div>
         <span className="text-[11px] font-medium text-terminal-text/90">
-          Модель состояния инструмента
+          Рыночный replay — фазы инструмента
         </span>
-        {CHART_BADGES.map((badge) => (
-          <span
-            key={badge}
-            className="rounded border border-terminal-border/50 bg-[#060A12] px-1.5 py-0.5 text-[9px] text-terminal-muted"
-          >
-            {badge}
-          </span>
-        ))}
+        <p className="mt-0.5 text-[10px] text-terminal-muted">
+          Свечи + объём. Наведите или кликните фазу.
+        </p>
       </div>
       <div className="text-right">
         <p className={cn("text-[11px] font-semibold", TONE_TEXT[shown.tone])}>
           {shown.title}
         </p>
-        <p className="text-[10px] text-terminal-muted">
-          {shown.subtitle} · Кликните фазу, чтобы увидеть подход
-        </p>
+        <p className="text-[10px] text-terminal-muted">{shown.subtitle}</p>
       </div>
     </div>
   );
 }
 
 function ChartGrid() {
-  const hLines = [40, 80, 120, 160, 200, 240];
-  const vLines = Array.from({ length: 13 }, (_, i) => i * 100);
+  const hCount = 6;
+  const hLines = Array.from({ length: hCount }, (_, i) =>
+    CHART.priceTop + (CHART.priceHeight / (hCount - 1)) * i,
+  );
+  const vCount = 14;
+  const vStep = (CHART.width - CHART.paddingLeft - CHART.paddingRight) / vCount;
+
   return (
-    <g opacity={0.1}>
+    <g opacity={0.08} className="pointer-events-none">
       {hLines.map((y) => (
         <line
           key={`h-${y}`}
-          x1={0}
+          x1={CHART.paddingLeft}
           y1={y}
-          x2={CHART.width}
+          x2={CHART.width - CHART.paddingRight}
           y2={y}
-          stroke="rgba(148, 163, 184, 0.8)"
+          stroke="rgba(148, 163, 184, 0.9)"
           strokeWidth={0.5}
         />
       ))}
-      {vLines.map((x) => (
-        <line
-          key={`v-${x}`}
-          x1={x}
-          y1={CHART.priceTop}
-          x2={x}
-          y2={CHART.volumeBottom}
-          stroke="rgba(148, 163, 184, 0.6)"
-          strokeWidth={0.5}
-        />
+      {Array.from({ length: vCount + 1 }, (_, i) => {
+        const x = CHART.paddingLeft + vStep * i;
+        return (
+          <line
+            key={`v-${x}`}
+            x1={x}
+            y1={CHART.priceTop}
+            x2={x}
+            y2={CHART.volumeBottom}
+            stroke="rgba(148, 163, 184, 0.7)"
+            strokeWidth={0.5}
+          />
+        );
+      })}
+    </g>
+  );
+}
+
+function PriceScaleLabels() {
+  const { minPrice, maxPrice } = CHART_SCALE;
+  const steps = 5;
+  const labels = Array.from({ length: steps }, (_, i) => {
+    const price = maxPrice - ((maxPrice - minPrice) / (steps - 1)) * i;
+    const y = CHART.priceTop + (CHART.priceHeight / (steps - 1)) * i;
+    return { price, y };
+  });
+
+  return (
+    <g className="pointer-events-none select-none">
+      {labels.map(({ price, y }) => (
+        <text
+          key={price}
+          x={CHART.width - CHART.paddingRight + 8}
+          y={y + 3}
+          fill="rgba(100, 116, 139, 0.55)"
+          fontSize={8}
+          fontFamily="monospace"
+        >
+          {price.toFixed(0)}
+        </text>
       ))}
     </g>
   );
@@ -331,8 +349,7 @@ function PhaseZone({
   onSelect: (id: CyclePhaseId) => void;
 }) {
   const w = phase.xEnd - phase.xStart;
-  const fillOpacity = highlighted ? 1.8 : 1;
-  const baseColor = phase.zoneColor;
+  const isWarning = phase.id === "acceleration" || phase.id === "breakout";
 
   return (
     <g
@@ -343,17 +360,17 @@ function PhaseZone({
     >
       <rect
         x={phase.xStart}
-        y={0}
+        y={CHART.priceTop}
         width={w}
-        height={CHART.height}
-        fill={baseColor}
-        opacity={highlighted ? Math.min(1, 0.22 * fillOpacity) : 0.08}
+        height={CHART.priceBottom - CHART.priceTop}
+        fill={phase.zoneColor}
+        opacity={highlighted ? 0.35 : 0.1}
         className="transition-opacity duration-200"
       />
       {active && (
         <rect
           x={phase.xStart}
-          y={0}
+          y={CHART.priceTop}
           width={w}
           height={2}
           fill={TONE_STROKE[phase.tone]}
@@ -362,11 +379,12 @@ function PhaseZone({
       {highlighted && (
         <rect
           x={phase.xStart}
-          y={CHART.height - 2}
+          y={CHART.priceTop}
           width={w}
-          height={2}
-          fill={TONE_STROKE[phase.tone]}
-          opacity={0.6}
+          height={CHART.priceBottom - CHART.priceTop}
+          fill="none"
+          stroke={isWarning ? "rgba(251, 191, 36, 0.35)" : "rgba(34, 211, 238, 0.25)"}
+          strokeWidth={1}
         />
       )}
     </g>
@@ -374,88 +392,86 @@ function PhaseZone({
 }
 
 function LevelAnnotations({ highlightId }: { highlightId: CyclePhaseId }) {
+  const L = LEVELS_Y;
+  const rangePhase = CYCLE_PHASES_LIVE.find((p) => p.id === "wideRange");
+  const rangeX1 = rangePhase?.xStart ?? 700;
+  const rangeX2 = rangePhase?.xEnd ?? 900;
+
   return (
-    <g className="pointer-events-none">
-      <LevelLine y={LEVELS.sidewaysHigh} label="боковик high" x1={8} x2={148} />
-      <LevelLine
-        y={LEVELS.sidewaysLow}
-        label="боковик low"
-        x1={8}
-        x2={148}
-        dashed
-      />
-      <LevelLine y={LEVELS.peakHigh} label="HIGH" x1={450} x2={570} tone="amber" />
-      <LevelLine
-        y={LEVELS.correctionLow}
-        label="correction low"
-        x1={570}
-        x2={690}
-        tone="cyan"
-      />
-      <LevelLine
-        y={LEVELS.rangeHigh}
-        label="верхняя граница"
-        x1={692}
-        x2={812}
-      />
-      <LevelLine
-        y={LEVELS.rangeLow}
-        label="нижняя граница"
-        x1={692}
-        x2={812}
-        dashed
-      />
+    <g className="pointer-events-none select-none">
+      <LevelLine y={L.sidewaysHigh} label="боковик high" x1={CHART.paddingLeft} x2={rangeX1 * 0.35} />
+      <LevelLine y={L.sidewaysLow} label="боковик low" x1={CHART.paddingLeft} x2={rangeX1 * 0.35} dashed />
+
+      <LevelLine y={L.peakHigh} label="HIGH" x1={420} x2={560} tone="amber" />
+      <LevelLine y={L.correctionLow} label="correction low" x1={560} x2={680} tone="cyan" />
+
       <rect
-        x={692}
-        y={LEVELS.rangeHigh}
-        width={118}
-        height={LEVELS.rangeLow - LEVELS.rangeHigh}
-        fill="none"
-        stroke="rgba(100, 116, 139, 0.35)"
+        x={rangeX1}
+        y={L.rangeHigh}
+        width={rangeX2 - rangeX1}
+        height={L.rangeLow - L.rangeHigh}
+        fill="rgba(100, 116, 139, 0.06)"
+        stroke="rgba(100, 116, 139, 0.4)"
         strokeWidth={1}
-        strokeDasharray="4 3"
+        strokeDasharray="5 4"
       />
-      <LevelLine
-        y={LEVELS.breakoutLevel}
-        label="уровень выноса"
-        x1={810}
-        x2={990}
-        tone="amber"
-      />
+      <LevelLine y={L.rangeHigh} label="верх диапазона" x1={rangeX1} x2={rangeX2} />
+      <LevelLine y={L.rangeLow} label="низ диапазона" x1={rangeX1} x2={rangeX2} dashed />
+
+      <LevelLine y={L.breakoutLevel} label="уровень выноса" x1={rangeX2 - 20} x2={CHART.width - 120} tone="amber" />
 
       <line
-        x1={518}
-        y1={LEVELS.peakHigh}
-        x2={662}
-        y2={LEVELS.correctionLow}
-        stroke="rgba(251, 191, 36, 0.45)"
-        strokeWidth={1}
-        strokeDasharray="3 3"
+        x1={520}
+        y1={L.peakHigh}
+        x2={640}
+        y2={L.correctionLow}
+        stroke="rgba(251, 191, 36, 0.5)"
+        strokeWidth={1.2}
+        strokeDasharray="4 3"
       />
-      <text x={560} y={68} fill="rgba(251, 191, 36, 0.75)" fontSize={9}>
+      <text x={548} y={(L.peakHigh + L.correctionLow) / 2} fill="rgba(251, 191, 36, 0.8)" fontSize={9}>
         коррекция ~30%
       </text>
 
       {highlightId === "impulse" && (
-        <text x={168} y={168} fill="rgba(251, 191, 36, 0.8)" fontSize={9}>
+        <text x={200} y={CHART.priceTop + 24} fill="rgba(245, 158, 11, 0.9)" fontSize={9}>
           объём ×5–10
         </text>
       )}
-      {highlightId === "trend" && (
-        <text x={340} y={48} fill="rgba(52, 211, 153, 0.75)" fontSize={9}>
-          структура держится
-        </text>
-      )}
-      {highlightId === "acceleration" && (
-        <text x={468} y={16} fill="rgba(251, 191, 36, 0.85)" fontSize={9}>
-          не догонять без плана
+      {highlightId === "rangeBase" && (
+        <text x={CHART.paddingLeft} y={CHART.priceBottom - 8} fill="rgba(100, 116, 139, 0.75)" fontSize={9}>
+          низкий объём
         </text>
       )}
       {highlightId === "consolidation" && (
-        <text x={1040} y={36} fill="rgba(167, 139, 250, 0.75)" fontSize={9}>
-          сжатие перед новым выходом
+        <text x={1180} y={CHART.priceTop + 20} fill="rgba(167, 139, 250, 0.8)" fontSize={9}>
+          объём снижается
         </text>
       )}
+    </g>
+  );
+}
+
+function ConsolidationWedge({ highlightId }: { highlightId: CyclePhaseId }) {
+  const phase = CYCLE_PHASES_LIVE.find((p) => p.id === "consolidation");
+  if (!phase) return null;
+  const x1 = phase.xStart + 10;
+  const x2 = phase.xEnd - 10;
+  const yTopStart = LEVELS_Y.rangeHigh - 20;
+  const yTopEnd = LEVELS_Y.peakHigh + 30;
+  const yBotStart = LEVELS_Y.correctionLow + 10;
+  const yBotEnd = LEVELS_Y.rangeLow - 15;
+  const active = highlightId === "consolidation";
+
+  return (
+    <g opacity={active ? 0.55 : 0.25} className="pointer-events-none">
+      <polygon
+        points={`${x1},${yTopStart} ${x2},${yTopEnd} ${x2},${yBotEnd} ${x1},${yBotStart}`}
+        fill="none"
+        stroke="rgba(167, 139, 250, 0.45)"
+        strokeWidth={1}
+        strokeDasharray="4 3"
+      />
     </g>
   );
 }
@@ -477,10 +493,10 @@ function LevelLine({
 }) {
   const stroke =
     tone === "amber"
-      ? "rgba(251, 191, 36, 0.45)"
+      ? "rgba(251, 191, 36, 0.5)"
       : tone === "cyan"
-        ? "rgba(34, 211, 238, 0.4)"
-        : "rgba(100, 116, 139, 0.35)";
+        ? "rgba(34, 211, 238, 0.45)"
+        : "rgba(100, 116, 139, 0.38)";
   return (
     <g>
       <line
@@ -492,7 +508,7 @@ function LevelLine({
         strokeWidth={1}
         strokeDasharray={dashed ? "4 3" : undefined}
       />
-      <text x={x1 + 4} y={y - 4} fill="rgba(100, 116, 139, 0.65)" fontSize={8}>
+      <text x={x1 + 4} y={y - 4} fill="rgba(100, 116, 139, 0.6)" fontSize={8}>
         {label}
       </text>
     </g>
@@ -517,14 +533,11 @@ function CandleShape({
   const bull = isBullish(candle);
   const palette = bull ? CANDLE_UP : CANDLE_DOWN;
   const bodyTop = Math.min(candle.open, candle.close);
-  const bodyH = Math.max(Math.abs(candle.close - candle.open), 1.2);
-  const opacity = ghost ? 0.45 : dimmed ? 0.35 : 1;
-  const bodyFill = ghost
-    ? "none"
-    : highlighted
-      ? palette.body
-      : palette.bodyDim;
+  const bodyH = Math.max(Math.abs(candle.close - candle.open), 1.4);
+  const opacity = ghost ? 0.5 : dimmed ? 0.32 : 1;
+  const bodyFill = ghost ? "none" : highlighted ? palette.body : palette.bodyDim;
   const wickStroke = highlighted ? palette.wick : palette.wickDim;
+  const width = ghost ? CHART.candleWidth - 1 : CHART.candleWidth;
 
   return (
     <g opacity={opacity} className="transition-opacity duration-200">
@@ -538,12 +551,12 @@ function CandleShape({
         strokeDasharray={ghost ? "2 2" : undefined}
       />
       <rect
-        x={candle.cx - CHART.candleWidth / 2}
+        x={candle.cx - width / 2}
         y={bodyTop}
-        width={CHART.candleWidth}
+        width={width}
         height={bodyH}
         fill={bodyFill}
-        stroke={ghost ? palette.wick : highlighted ? palette.body : "none"}
+        stroke={ghost ? "rgba(248, 113, 113, 0.55)" : "none"}
         strokeWidth={ghost ? 0.8 : 0}
         strokeDasharray={ghost ? "2 1" : undefined}
         rx={0.5}
@@ -552,32 +565,11 @@ function CandleShape({
   );
 }
 
-function PriceContour({
-  candles,
-  highlightId,
-}: {
-  candles: SceneCandle[];
-  highlightId: CyclePhaseId;
-}) {
-  const phase = getPhase(highlightId);
-  const segment = candles.filter((c) => c.phaseId === highlightId);
-  if (segment.length < 2) return null;
-
-  const d = segment
-    .map((c, i) => `${i === 0 ? "M" : "L"}${c.cx} ${(c.high + c.low) / 2}`)
-    .join(" ");
-
-  return (
-    <path
-      d={d}
-      fill="none"
-      stroke={TONE_STROKE[phase.tone]}
-      strokeWidth={1.2}
-      strokeLinecap="round"
-      opacity={0.55}
-      className="transition-[stroke] duration-200"
-    />
-  );
+function volumeFill(volume: number, highlighted: boolean, dimmed: boolean): string {
+  if (dimmed) return VOL_LOW;
+  if (volume >= 0.75) return VOL_HIGH;
+  if (volume >= 0.35) return highlighted ? "rgba(245, 158, 11, 0.72)" : VOL_NORMAL;
+  return VOL_LOW;
 }
 
 function VolumeBarShape({
@@ -590,66 +582,66 @@ function VolumeBarShape({
   dimmed: boolean;
 }) {
   const h = candle.volume * CHART.volMaxH;
-  const fill =
-    candle.volume > 0.7
-      ? "url(#volSpike)"
-      : candle.volume > 0.35
-        ? "url(#volNormal)"
-        : "url(#volLow)";
+  const isConsolidation = candle.phaseId === "consolidation";
 
   return (
     <rect
-      x={candle.cx - CHART.candleWidth / 2 - 0.5}
+      x={candle.cx - CHART.candleWidth / 2}
       y={CHART.volBaseY - h}
-      width={CHART.candleWidth + 1}
-      height={h}
-      fill={fill}
-      opacity={dimmed ? 0.3 : highlighted ? 1 : 0.75}
+      width={CHART.candleWidth}
+      height={Math.max(h, 1)}
+      fill={volumeFill(candle.volume, highlighted, dimmed || isConsolidation)}
+      opacity={dimmed ? 0.35 : highlighted ? 1 : 0.78}
       rx={0.5}
       className="transition-opacity duration-200"
     />
   );
 }
 
-function VolumeSeparator() {
+function VolumeSeparator({ highlightId }: { highlightId: CyclePhaseId }) {
+  const phase = getPhase(highlightId);
   return (
-    <g className="pointer-events-none">
+    <g className="pointer-events-none select-none">
       <line
-        x1={0}
-        y1={CHART.volumeTop - 4}
-        x2={CHART.width}
-        y2={CHART.volumeTop - 4}
-        stroke="rgba(30, 41, 59, 0.9)"
+        x1={CHART.paddingLeft}
+        y1={CHART.volumeTop}
+        x2={CHART.width - CHART.paddingRight}
+        y2={CHART.volumeTop}
+        stroke="rgba(30, 41, 59, 0.95)"
         strokeWidth={1}
       />
-      <text x={8} y={CHART.volumeTop + 10} fill="rgba(100, 116, 139, 0.7)" fontSize={9}>
+      <text x={CHART.paddingLeft} y={CHART.volumeTop + 14} fill="rgba(100, 116, 139, 0.65)" fontSize={9}>
         объём
       </text>
+      {phase.volumeHint && (
+        <text
+          x={CHART.paddingLeft + 48}
+          y={CHART.volumeTop + 14}
+          fill="rgba(245, 158, 11, 0.75)"
+          fontSize={9}
+        >
+          · {phase.volumeHint}
+        </text>
+      )}
     </g>
   );
 }
 
 function PhaseMarkers({ highlightId }: { highlightId: CyclePhaseId }) {
+  const breakoutPhase = CYCLE_PHASES_LIVE.find((p) => p.id === "breakout");
+  const bx = breakoutPhase ? (breakoutPhase.xStart + breakoutPhase.xEnd) / 2 : 950;
   const breakoutOn = highlightId === "breakout";
+
   return (
     <g className="pointer-events-none select-none">
-      <MarkerTag x={844} y={96} label="возврат" tone="red" active={breakoutOn} />
-      <MarkerTag
-        x={920}
-        y={48}
-        label="невозврат"
-        tone="green"
-        active={breakoutOn}
-      />
-      <MarkerTag x={168} y={152} label="импульс" tone="cyan" active={highlightId === "impulse"} />
-      <MarkerTag x={340} y={56} label="уровень" tone="muted" active={highlightId === "wideRange"} />
-      <MarkerTag
-        x={1080}
-        y={48}
-        label="сжатие"
-        tone="violet"
-        active={highlightId === "consolidation"}
-      />
+      <MarkerTag x={bx - 40} y={LEVELS_Y.breakoutLevel + 28} label="возврат" tone="red" active={breakoutOn} />
+      <MarkerTag x={bx + 30} y={LEVELS_Y.breakoutLevel - 12} label="невозврат" tone="green" active={breakoutOn} />
+      {highlightId === "impulse" && (
+        <MarkerTag x={210} y={CHART.priceBottom - 16} label="импульс" tone="cyan" active />
+      )}
+      {highlightId === "wideRange" && (
+        <MarkerTag x={780} y={LEVELS_Y.rangeHigh - 10} label="границы" tone="muted" active />
+      )}
     </g>
   );
 }
@@ -668,48 +660,33 @@ function MarkerTag({
   active: boolean;
 }) {
   const colors: Record<typeof tone, string> = {
-    cyan: "rgba(34, 211, 238, 0.8)",
-    green: "rgba(52, 211, 153, 0.85)",
-    red: "rgba(248, 113, 113, 0.85)",
-    amber: "rgba(251, 191, 36, 0.85)",
+    cyan: "rgba(34, 211, 238, 0.85)",
+    green: "rgba(52, 211, 153, 0.9)",
+    red: "rgba(248, 113, 113, 0.9)",
+    amber: "rgba(251, 191, 36, 0.9)",
     muted: "rgba(100, 116, 139, 0.75)",
-    violet: "rgba(167, 139, 250, 0.8)",
+    violet: "rgba(167, 139, 250, 0.85)",
   };
   return (
-    <text
-      x={x}
-      y={y}
-      fill={colors[tone]}
-      fontSize={8}
-      fontWeight={active ? 600 : 400}
-      opacity={active ? 1 : 0.65}
-    >
+    <text x={x} y={y} fill={colors[tone]} fontSize={8} fontWeight={active ? 600 : 400} opacity={active ? 1 : 0.6}>
       {label}
     </text>
   );
 }
 
-function PhaseTooltip({
-  phase,
-  x,
-  y,
-}: {
-  phase: CyclePhase;
-  x: number;
-  y: number;
-}) {
-  const tx = Math.min(Math.max(x - 70, 8), CHART.width - 148);
-  const ty = Math.max(y - 72, 8);
+function PhaseTooltip({ phase, x, y }: { phase: CyclePhase; x: number; y: number }) {
+  const tx = Math.min(Math.max(x - 72, 8), CHART.width - 152);
+  const ty = Math.max(y - 68, 24);
   return (
     <g className="pointer-events-none">
       <rect
         x={tx}
         y={ty}
-        width={140}
-        height={64}
+        width={144}
+        height={58}
         rx={4}
-        fill="rgba(5, 7, 13, 0.92)"
-        stroke="rgba(34, 211, 238, 0.25)"
+        fill="rgba(4, 7, 13, 0.94)"
+        stroke="rgba(34, 211, 238, 0.28)"
         strokeWidth={1}
       />
       <text x={tx + 8} y={ty + 14} fill="rgba(226, 232, 240, 0.95)" fontSize={9} fontWeight={600}>
@@ -718,10 +695,7 @@ function PhaseTooltip({
       <text x={tx + 8} y={ty + 28} fill="rgba(100, 116, 139, 0.9)" fontSize={8}>
         {phase.subtitle}
       </text>
-      <text x={tx + 8} y={ty + 42} fill="rgba(34, 211, 238, 0.75)" fontSize={8}>
-        {phase.logic}
-      </text>
-      <text x={tx + 8} y={ty + 56} fill="rgba(100, 116, 139, 0.8)" fontSize={8}>
+      <text x={tx + 8} y={ty + 44} fill="rgba(34, 211, 238, 0.75)" fontSize={8}>
         {phase.screenerModeLabel}
       </text>
     </g>
@@ -812,12 +786,12 @@ function ActivePhaseCard({
           </ul>
         </div>
 
-        <div className="rounded border border-terminal-border/50 bg-[#080E18]/60 px-2.5 py-2">
+        <div className="rounded border border-cyan/20 bg-cyan/[0.04] px-2.5 py-2">
           <p className="text-[10px] font-medium uppercase tracking-wider text-terminal-muted">
-            Что это значит для выбора инструмента
+            Что смотреть в скринере
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-cyan/85">
-            {phase.instrumentPickHint}
+          <p className="mt-1 text-[11px] leading-relaxed text-cyan/90">
+            {phase.screenerModeLabel}. {phase.instrumentPickHint}
           </p>
         </div>
       </div>
@@ -839,7 +813,7 @@ function ActivePhaseCard({
           </button>
         ) : (
           <p className="text-[10px] text-terminal-muted">
-            Выберите режим «{phase.screenerModeLabel.split("/")[0]?.trim()}» ниже
+            Режим «{phase.screenerModeLabel.split("/")[0]?.trim()}» — ниже
           </p>
         )}
       </div>

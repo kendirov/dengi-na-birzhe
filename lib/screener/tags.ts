@@ -96,7 +96,7 @@ export function computeMedians(instruments: EnrichedInstrument[]) {
 export function buildTypeLabels(inst: EnrichedInstrument): string[] {
   const labels: string[] = [];
   if (inst.technicalScore >= 60) labels.push("техничная");
-  if (inst.spreadTradable && inst.spreadTradingScore >= 60) labels.push("спредовая");
+  if (inst.spreadTradable && inst.spreadTradingScore >= 60) labels.push("стакан");
   if (inst.inPlayScore >= 65) labels.push("в игре");
   if (inst.beginnerScore >= 65) labels.push("новичку");
   if (inst.dangerousScore >= 60) labels.push("опасная");

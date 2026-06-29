@@ -1,7 +1,9 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { EnrichedInstrument } from "@/lib/types/instrument";
-import type { SortColumn, SortDirection } from "@/lib/types/screener";
+import type { ScreenerMode, SortColumn, SortDirection } from "@/lib/types/screener";
+import type { TrainingPickMeta } from "@/lib/screener/training-picks";
 import {
   formatPct,
   formatPrice,
@@ -10,49 +12,80 @@ import {
   formatNullableRub,
   cn,
 } from "@/lib/utils/format";
+import { TABLE_HEADER_TOOLTIPS } from "@/lib/screener/drive-basics-terms";
 
 interface ScreenerTableProps {
   instruments: EnrichedInstrument[];
   totalFiltered?: number;
   selectedTicker?: string;
+  mode?: ScreenerMode;
+  trainingMeta?: Map<string, TrainingPickMeta>;
   sortColumn: SortColumn;
   sortDirection: SortDirection;
   onSort: (column: SortColumn) => void;
   onSelect: (instrument: EnrichedInstrument) => void;
 }
 
+type ColumnKey = SortColumn | "name";
+
 type ColumnDef = {
-  key: SortColumn | "name";
+  key: ColumnKey;
   label: string;
   tooltip?: string;
   sortable?: boolean;
-  tone?: "cyan" | "amber" | "default";
   align?: "left" | "right";
   minW?: string;
-  zone?: "price" | "spread" | "commission" | "activity";
+  tone?: "cyan" | "amber" | "muted";
 };
 
-const ZONE_LABELS: Record<NonNullable<ColumnDef["zone"]>, string> = {
-  price: "цена / лот",
-  spread: "шаг / spread",
-  commission: "комиссия",
-  activity: "активность",
-};
-
-const COLUMNS: ColumnDef[] = [
-  { key: "ticker", label: "Тикер", sortable: true, tone: "cyan", minW: "56px", zone: "price" },
-  { key: "name", label: "Инструмент", minW: "88px", zone: "price" },
-  { key: "price", label: "Цена", sortable: true, align: "right", minW: "64px", zone: "price" },
-  { key: "lotValue", label: "Цена лота", sortable: true, align: "right", minW: "76px", zone: "price" },
-  { key: "changePct", label: "%", sortable: true, align: "right", minW: "44px", zone: "price" },
+const TABLE_COLUMNS: ColumnDef[] = [
   {
-    key: "tickSize",
-    label: "Шаг цены",
+    key: "ticker",
+    label: "Тикер",
+    sortable: true,
+    tone: "cyan",
+    minW: "52px",
+    tooltip: TABLE_HEADER_TOOLTIPS.ticker,
+  },
+  {
+    key: "name",
+    label: "Инструмент",
+    minW: "88px",
+    tooltip: TABLE_HEADER_TOOLTIPS.name,
+  },
+  { key: "price", label: "Цена", sortable: true, align: "right", minW: "64px" },
+  { key: "changePct", label: "%", sortable: true, align: "right", minW: "44px" },
+  {
+    key: "trades",
+    label: "Сделки",
     sortable: true,
     align: "right",
-    tooltip: "Минимальное изменение цены инструмента",
     minW: "56px",
-    zone: "spread",
+    tooltip: TABLE_HEADER_TOOLTIPS.trades,
+  },
+  {
+    key: "turnoverRub",
+    label: "Оборот",
+    sortable: true,
+    align: "right",
+    minW: "68px",
+    tooltip: TABLE_HEADER_TOOLTIPS.turnoverRub,
+  },
+  {
+    key: "dayRangePct",
+    label: "Диапазон",
+    sortable: true,
+    align: "right",
+    minW: "56px",
+    tooltip: TABLE_HEADER_TOOLTIPS.dayRangePct,
+  },
+  {
+    key: "lotValue",
+    label: "Цена лота",
+    sortable: true,
+    align: "right",
+    minW: "76px",
+    tooltip: TABLE_HEADER_TOOLTIPS.lotValue,
   },
   {
     key: "tickValueRub",
@@ -60,47 +93,25 @@ const COLUMNS: ColumnDef[] = [
     sortable: true,
     align: "right",
     tone: "cyan",
-    tooltip: "Сколько рублей даёт 1 минимальный шаг цены при позиции 1 лот",
     minW: "64px",
-    zone: "spread",
+    tooltip: TABLE_HEADER_TOOLTIPS.tickValueRub,
   },
   {
     key: "spreadTicks",
-    label: "Спред, пунктов",
+    label: "Спред, п.",
     sortable: true,
     align: "right",
     tone: "amber",
-    tooltip: "Сколько минимальных шагов цены между bid и ask.",
-    minW: "68px",
-    zone: "spread",
-  },
-  { key: "spreadRub", label: "Спред, ₽", sortable: true, align: "right", tone: "amber", minW: "60px", zone: "spread" },
-  { key: "spreadPct", label: "Спред, %", sortable: true, align: "right", tone: "amber", minW: "56px", zone: "spread" },
-  {
-    key: "commissionLimitRub",
-    label: "Ком. лимит, ₽",
-    sortable: true,
-    align: "right",
-    minW: "72px",
-    zone: "commission",
+    minW: "64px",
+    tooltip: TABLE_HEADER_TOOLTIPS.spreadTicks,
   },
   {
-    key: "commissionMarketRub",
-    label: "Ком. рынок, ₽",
-    sortable: true,
-    align: "right",
-    minW: "72px",
-    zone: "commission",
-  },
-  {
-    key: "commissionLimitTicks",
-    label: "Ком. лимит, п.",
+    key: "spreadPct",
+    label: "Спред, %",
     sortable: true,
     align: "right",
     tone: "amber",
-    tooltip: "Сколько пунктов нужно пройти, чтобы отбить лимитную комиссию.",
-    minW: "72px",
-    zone: "commission",
+    minW: "56px",
   },
   {
     key: "commissionMarketTicks",
@@ -108,30 +119,43 @@ const COLUMNS: ColumnDef[] = [
     sortable: true,
     align: "right",
     tone: "amber",
-    tooltip: "Сколько пунктов нужно пройти, чтобы отбить рыночную комиссию.",
     minW: "72px",
-    zone: "commission",
+    tooltip: TABLE_HEADER_TOOLTIPS.commissionMarketTicks,
   },
-  { key: "turnoverRub", label: "Оборот", sortable: true, align: "right", minW: "68px", zone: "activity" },
-  { key: "trades", label: "Сделки", sortable: true, align: "right", minW: "56px", zone: "activity" },
-  { key: "dayRangePct", label: "Диапазон", sortable: true, align: "right", minW: "56px", zone: "activity" },
 ];
 
-function zoneSpan(zone: NonNullable<ColumnDef["zone"]>): number {
-  return COLUMNS.filter((c) => c.zone === zone).length;
+const TECHNICAL_EMPHASIS: ColumnKey[] = [
+  "trades",
+  "turnoverRub",
+  "dayRangePct",
+  "changePct",
+];
+
+const SPREAD_EMPHASIS: ColumnKey[] = [
+  "trades",
+  "spreadTicks",
+  "tickValueRub",
+  "commissionMarketTicks",
+];
+
+function emphasisClass(col: ColumnKey, mode?: ScreenerMode): string {
+  if (mode === "technical" && TECHNICAL_EMPHASIS.includes(col)) {
+    return "font-semibold text-terminal-text";
+  }
+  if (mode === "spread" && SPREAD_EMPHASIS.includes(col)) {
+    return col === "trades"
+      ? "font-semibold text-terminal-text"
+      : "font-semibold text-amber";
+  }
+  return "";
 }
-
-const ZONE_ROW: { zone: NonNullable<ColumnDef["zone"]>; span: number }[] = [
-  { zone: "price", span: zoneSpan("price") },
-  { zone: "spread", span: zoneSpan("spread") },
-  { zone: "commission", span: zoneSpan("commission") },
-  { zone: "activity", span: zoneSpan("activity") },
-];
 
 export function ScreenerTable({
   instruments,
   totalFiltered,
   selectedTicker,
+  mode,
+  trainingMeta,
   sortColumn,
   sortDirection,
   onSort,
@@ -144,40 +168,22 @@ export function ScreenerTable({
           Показано {instruments.length} из {totalFiltered} по фильтрам
         </p>
       )}
-      <p className="text-[10px] text-terminal-muted">
-        Прокрутите вправо: комиссии и активность.
-      </p>
+      {mode === "training" && (
+        <p className="text-[10px] text-violet/90">
+          Учебная выборка: 12 примеров.
+        </p>
+      )}
       <div className="overflow-x-auto rounded-lg border border-terminal-border/80 bg-[#070b10] scrollbar-terminal">
-        <table className="w-full min-w-[1280px] border-collapse text-left text-[11px]">
-          <thead className="sticky top-0 z-20 bg-[#0a0f14]">
-            <tr className="border-b border-terminal-border/40">
-              {ZONE_ROW.map(({ zone, span }) => (
-                <th
-                  key={zone}
-                  colSpan={span}
-                  className={cn(
-                    "px-2 py-1 text-[8px] font-semibold uppercase tracking-wider text-terminal-muted/80",
-                    zone === "price" && "sticky left-0 z-30 bg-[#0a0f14]",
-                    zone === "spread" && "bg-cyan/[0.03]",
-                    zone === "commission" && "bg-amber/[0.03]",
-                    zone === "activity" && "bg-green/[0.03]",
-                  )}
-                >
-                  {ZONE_LABELS[zone]}
-                </th>
-              ))}
-            </tr>
+        <table className="w-full min-w-[920px] border-collapse text-left text-[11px]">
+          <thead className="sticky top-0 z-20 bg-[#0a0f14] shadow-[0_1px_0_rgba(20,28,42,0.9)]">
             <tr className="border-b border-terminal-border/70">
-              {COLUMNS.map((col) => (
+              {TABLE_COLUMNS.map((col) => (
                 <th
                   key={col.key}
                   title={col.tooltip}
                   className={cn(
-                    "whitespace-nowrap px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider",
+                    "whitespace-nowrap px-2 py-2 text-[9px] font-medium uppercase tracking-wider",
                     col.key === "ticker" && "sticky left-0 z-30 bg-[#0a0f14]",
-                    col.zone === "spread" && "bg-cyan/[0.02]",
-                    col.zone === "commission" && "bg-amber/[0.02]",
-                    col.zone === "activity" && "bg-green/[0.02]",
                     col.align === "right" && "text-right",
                     col.tone === "cyan" && "text-cyan/90",
                     col.tone === "amber" && "text-amber/80",
@@ -203,7 +209,7 @@ export function ScreenerTable({
             {instruments.length === 0 ? (
               <tr>
                 <td
-                  colSpan={COLUMNS.length}
+                  colSpan={TABLE_COLUMNS.length}
                   className="px-4 py-10 text-center text-terminal-muted"
                 >
                   Нет инструментов по выбранным фильтрам
@@ -214,6 +220,8 @@ export function ScreenerTable({
                 <InstrumentRow
                   key={inst.ticker}
                   inst={inst}
+                  mode={mode}
+                  trainingMeta={trainingMeta?.get(inst.ticker)}
                   selected={inst.ticker === selectedTicker}
                   onSelect={() => onSelect(inst)}
                 />
@@ -231,33 +239,76 @@ function formatPoints(value: number | null, digits = 1): string {
   return value.toFixed(digits);
 }
 
-function spreadPointsClass(points: number | null): string {
-  if (points === null) return "text-amber/85";
-  if (points >= 4) return "font-semibold text-amber";
-  return "text-amber/90";
-}
-
-function commissionPointsClass(points: number | null): string {
-  if (points === null) return "text-amber/85";
-  if (points >= 3) return "font-semibold text-amber";
-  return "text-amber/85";
-}
+const TRAINING_BADGE_TONE: Record<
+  TrainingPickMeta["verdict"],
+  string
+> = {
+  yes: "border-green/30 bg-green/10 text-green",
+  caution: "border-amber/30 bg-amber/10 text-amber",
+  no: "border-red/30 bg-red/10 text-red",
+};
 
 function InstrumentRow({
   inst,
+  mode,
+  trainingMeta,
   selected,
   onSelect,
 }: {
   inst: EnrichedInstrument;
+  mode?: ScreenerMode;
+  trainingMeta?: TrainingPickMeta;
   selected: boolean;
   onSelect: () => void;
 }) {
   const positive = (inst.changePct ?? 0) >= 0;
-  const spreadPoints = inst.spreadTicks;
-  const marketEntryPoints = inst.entryCostMarketTicks;
-  const expensiveEntry =
-    marketEntryPoints !== null && marketEntryPoints >= 8;
-  const wideSpread = spreadPoints !== null && spreadPoints >= 4;
+
+  const cellRenderers: Record<ColumnKey, ReactNode> = {
+    ticker: <span className="font-bold text-cyan">{inst.ticker}</span>,
+    name: (
+      <div className="max-w-[120px]">
+        <span className="block truncate text-terminal-muted/90">{inst.name}</span>
+        {trainingMeta && (
+          <span
+            className={cn(
+              "mt-0.5 inline-block rounded border px-1 py-px text-[8px] font-medium leading-tight",
+              TRAINING_BADGE_TONE[trainingMeta.verdict],
+            )}
+          >
+            {trainingMeta.roleLabel}
+          </span>
+        )}
+      </div>
+    ),
+    price: <span className="text-terminal-text/90">{formatPrice(inst.price)}</span>,
+    changePct: (
+      <span className={positive ? "text-green" : "text-red"}>
+        {formatPct(inst.changePct)}
+      </span>
+    ),
+    trades: (
+      <span className="text-terminal-text/90">{formatNumber(inst.trades)}</span>
+    ),
+    turnoverRub: (
+      <span className="text-terminal-text/85">{formatRub(inst.turnoverRub, true)}</span>
+    ),
+    dayRangePct:
+      inst.dayRangePct !== null ? `${inst.dayRangePct.toFixed(1)}%` : "—",
+    lotValue: formatRub(inst.lotValue),
+    tickValueRub: formatNullableRub(inst.tickValueRub),
+    spreadTicks: formatPoints(inst.spreadTicks, 0),
+    spreadPct:
+      inst.spreadPct !== null ? `${inst.spreadPct.toFixed(3)}%` : "—",
+    commissionMarketTicks: formatPoints(inst.commissionMarketTicks),
+    tickSize: null,
+    spreadRub: null,
+    commissionLimitRub: null,
+    commissionMarketRub: null,
+    commissionLimitTicks: null,
+    score: null,
+    entryCostRub: null,
+    rubPerPointPerLot: null,
+  };
 
   return (
     <tr
@@ -265,69 +316,26 @@ function InstrumentRow({
       className={cn(
         "cursor-pointer border-b border-terminal-border/25 font-mono transition-colors",
         selected
-          ? "bg-cyan/10 ring-1 ring-inset ring-cyan/25"
+          ? "bg-cyan/12 ring-1 ring-inset ring-cyan/35"
           : "bg-[#080c11] hover:bg-[#0c1218]",
-        (expensiveEntry || wideSpread) && !selected && "bg-red/[0.03]",
       )}
     >
-      <td
-        className={cn(
-          "sticky left-0 z-[1] border-r border-terminal-border/30 px-2 py-1.5",
-          selected ? "bg-[#0a1520]" : "bg-inherit",
-        )}
-      >
-        <span className="font-bold text-cyan">{inst.ticker}</span>
-      </td>
-      <td className="max-w-[100px] truncate px-2 py-1.5 text-terminal-muted/90">
-        {inst.name}
-      </td>
-      <td className="px-2 py-1.5 text-right text-terminal-text/90">
-        {formatPrice(inst.price)}
-      </td>
-      <td className="px-2 py-1.5 text-right">{formatRub(inst.lotValue)}</td>
-      <td className={cn("px-2 py-1.5 text-right", positive ? "text-green" : "text-red")}>
-        {formatPct(inst.changePct)}
-      </td>
-      <td className="px-2 py-1.5 text-right text-terminal-muted/80">
-        {inst.tickSize !== null ? inst.tickSize : "—"}
-      </td>
-      <td className="px-2 py-1.5 text-right">
-        <span className="font-semibold text-cyan">
-          {formatNullableRub(inst.tickValueRub)}
-        </span>
-      </td>
-      <td className={cn("px-2 py-1.5 text-right", spreadPointsClass(spreadPoints))}>
-        {formatPoints(spreadPoints, 0)}
-      </td>
-      <td className="px-2 py-1.5 text-right text-amber/85">
-        {inst.spreadRub !== null ? inst.spreadRub.toFixed(2) : "—"}
-      </td>
-      <td className="px-2 py-1.5 text-right text-amber/80">
-        {inst.spreadPct !== null ? `${inst.spreadPct.toFixed(3)}%` : "—"}
-      </td>
-      <td className="px-2 py-1.5 text-right text-terminal-text/75">
-        {formatRub(inst.commissionLimitRub)}
-      </td>
-      <td className="px-2 py-1.5 text-right text-terminal-text/75">
-        {formatRub(inst.commissionMarketRub)}
-      </td>
-      <td className={cn("px-2 py-1.5 text-right", commissionPointsClass(inst.commissionLimitTicks))}>
-        {formatPoints(inst.commissionLimitTicks)}
-      </td>
-      <td
-        className={cn(
-          "px-2 py-1.5 text-right",
-          commissionPointsClass(inst.commissionMarketTicks),
-          expensiveEntry && "text-red/90",
-        )}
-      >
-        {formatPoints(inst.commissionMarketTicks)}
-      </td>
-      <td className="px-2 py-1.5 text-right">{formatRub(inst.turnoverRub, true)}</td>
-      <td className="px-2 py-1.5 text-right">{formatNumber(inst.trades)}</td>
-      <td className="px-2 py-1.5 text-right">
-        {inst.dayRangePct !== null ? `${inst.dayRangePct.toFixed(1)}%` : "—"}
-      </td>
+      {TABLE_COLUMNS.map((col) => (
+        <td
+          key={col.key}
+          className={cn(
+            "px-2 py-1.5",
+            col.key === "ticker" &&
+              "sticky left-0 z-[1] border-r border-terminal-border/30 bg-inherit",
+            col.align === "right" && "text-right",
+            col.tone === "amber" && !emphasisClass(col.key, mode) && "text-amber/90",
+            col.tone === "cyan" && "text-cyan/90",
+            emphasisClass(col.key, mode),
+          )}
+        >
+          {cellRenderers[col.key]}
+        </td>
+      ))}
     </tr>
   );
 }

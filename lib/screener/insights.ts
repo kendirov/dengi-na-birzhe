@@ -33,18 +33,18 @@ export function buildBeginnerExplanation(
     case "spread": {
       const bullets: string[] = [];
       if (inst.spreadTicks !== null) {
-        bullets.push(`Spread: ${inst.spreadTicks.toFixed(0)} пунктов.`);
+        bullets.push(`Spread ${inst.spreadTicks.toFixed(0)} пунктов.`);
       } else {
         bullets.push("Spread недоступен в ISS — проверить в приводе.");
       }
+      bullets.push(`Сделок ${formatNumber(inst.trades)}.`);
+      bullets.push(`Оборот ${formatRub(inst.turnoverRub, true)}.`);
       if (inst.tickValueRub !== null) {
-        bullets.push(`Цена шага: ${formatRub(inst.tickValueRub)} на 1 лот.`);
+        bullets.push(`Цена шага ${formatRub(inst.tickValueRub)}.`);
       }
-      bullets.push(`Сделок достаточно: ${formatNumber(inst.trades)}.`);
-      bullets.push(`Оборот есть: ${formatRub(inst.turnoverRub, true)}.`);
       if (inst.commissionMarketTicks !== null) {
         bullets.push(
-          `Комиссия съедает ${inst.commissionMarketTicks.toFixed(1)} пунктов.`,
+          `Комиссия рынок съедает ${inst.commissionMarketTicks.toFixed(1)} пунктов.`,
         );
       }
       return bullets.slice(0, 5);
@@ -241,10 +241,10 @@ export function buildWhyShort(inst: EnrichedInstrument): string {
   if (inst.inPlayScore >= 70) return "В игре: оборот и сделки";
   if (inst.technicalScore >= 70) return "Техничная: диапазон, ликвидность";
   if (inst.spreadTradable && inst.spreadTradingScore >= 60) {
-    return `Спредовая: ${inst.spreadTicks?.toFixed(0) ?? "—"} п., сделки и оборот`;
+    return `Стакан: ${inst.spreadTicks?.toFixed(0) ?? "—"} п., сделки и оборот`;
   }
   if (inst.spreadTradingScore >= 70) {
-    return "Спредовая: широкий спред + сделки + оборот";
+    return "Стакан: рабочий spread + сделки + оборот";
   }
   if (inst.beginnerScore >= 70) return "Новичку: понятный лот";
   if (inst.dangerousScore >= 65) return "Осторожно: плохие условия";

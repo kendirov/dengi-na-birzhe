@@ -67,6 +67,8 @@ export function getModeScore(
   switch (mode) {
     case "all":
       return instrument.liquidityScore;
+    case "training":
+      return instrument.liquidityScore;
     case "technical":
       return instrument.technicalScore;
     case "spread":

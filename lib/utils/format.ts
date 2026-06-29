@@ -1,3 +1,10 @@
+/** SSR-safe: avoids Intl locale differences between Node and browser. */
+function formatIntegerWithSpaces(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  const digits = Math.abs(Math.trunc(value)).toString();
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 export function formatRub(value: number, compact = false): string {
   if (compact) {
     if (value >= 1_000_000_000) {
@@ -10,15 +17,14 @@ export function formatRub(value: number, compact = false): string {
       return `${(value / 1_000).toFixed(1)} тыс ₽`;
     }
   }
-  return new Intl.NumberFormat("ru-RU", {
-    style: "currency",
-    currency: "RUB",
-    maximumFractionDigits: value < 10 ? 2 : 0,
-  }).format(value);
+  if (value < 10) {
+    return `${value.toFixed(2).replace(".", ",")} ₽`;
+  }
+  return `${formatIntegerWithSpaces(Math.round(value))} ₽`;
 }
 
 export function formatNumber(value: number): string {
-  return new Intl.NumberFormat("ru-RU").format(value);
+  return formatIntegerWithSpaces(value);
 }
 
 export function formatPct(value: number | null, signed = true): string {

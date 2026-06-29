@@ -1,8 +1,17 @@
 import type { MarketInstrumentRaw } from "@/lib/data/types";
+import { TRADABLE_STOCK_DEFAULTS } from "@/lib/data/instrument-classifier";
 
 type MockInstrumentSeed = Omit<
   MarketInstrumentRaw,
-  "bid" | "ask" | "volume" | "dayHigh" | "dayLow" | "baselineStatus"
+  | "bid"
+  | "ask"
+  | "volume"
+  | "dayHigh"
+  | "dayLow"
+  | "baselineStatus"
+  | "instrumentClass"
+  | "isTradableStock"
+  | "excludeReason"
 >;
 
 const rawInstruments: MockInstrumentSeed[] = [
@@ -357,6 +366,10 @@ const rawInstruments: MockInstrumentSeed[] = [
 export function getMockRawInstruments(): MarketInstrumentRaw[] {
   return rawInstruments.map((inst) => ({
     ...inst,
+    ...TRADABLE_STOCK_DEFAULTS,
+    instrumentClass: inst.ticker.endsWith("P")
+      ? ("preferred_stock" as const)
+      : TRADABLE_STOCK_DEFAULTS.instrumentClass,
     bid: inst.spreadRub !== null && inst.spreadRub > 0 ? inst.price - inst.spreadRub / 2 : null,
     ask: inst.spreadRub !== null && inst.spreadRub > 0 ? inst.price + inst.spreadRub / 2 : null,
     volume: null,
