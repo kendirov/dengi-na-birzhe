@@ -16,6 +16,11 @@ const navItems = [
     label: "Рискменеджмент",
     match: (p: string) => p.startsWith("/money-management"),
   },
+  {
+    href: "/stakan-lenta",
+    label: "Стакан-лента",
+    match: (p: string) => p.startsWith("/stakan-lenta"),
+  },
 ];
 
 export function TopNav() {

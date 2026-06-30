@@ -6,7 +6,11 @@
     "dev": "node scripts/ensure-next-dev.mjs",
     "build": "node scripts/ensure-next-build.mjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "analyze:reference": "node scripts/analyze-reference.mjs",
+    "test:visual": "node scripts/visual-qa.mjs",
+    "test:visual:update-reference": "node scripts/visual-qa.mjs --update-reference",
+    "audit:terminal": "node scripts/audit-terminal.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
@@ -23,7 +27,9 @@
     "@types/react-dom": "^19.1.9",
     "eslint": "^9.34.0",
     "eslint-config-next": "^15.5.0",
+    "pixelmatch": "^7.2.0",
     "playwright": "^1.61.1",
+    "pngjs": "^7.0.0",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2"
   }

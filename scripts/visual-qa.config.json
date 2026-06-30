@@ -1,0 +1,32 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "path": "/stakan-lenta?mode=terminal&capture=1",
+  "viewport": {
+    "width": 984,
+    "height": 1200
+  },
+  "selector": ".cscalp-terminal-window",
+  "hideSelectors": [
+    ".cscalp-reference-overlay",
+    ".cscalp-debug-stack",
+    ".cscalp-visual-qa",
+    ".cscalp-disclaimer"
+  ],
+  "outputDir": "artifacts/screenshots",
+  "currentFile": "current.png",
+  "diffFile": "diff.png",
+  "referenceFile": "public/reference/cscalp-reference.png",
+  "referenceTerminalFile": "artifacts/screenshots/reference-terminal.png",
+  "designSize": {
+    "width": 984,
+    "height": 1200
+  },
+  "pixelmatch": {
+    "enabled": true,
+    "failOnDiff": false,
+    "failOnSizeMismatch": true,
+    "threshold": 0.12,
+    "maxDiffRatio": 0.35,
+    "includeAA": false
+  }
+}

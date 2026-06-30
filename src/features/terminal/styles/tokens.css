@@ -1,0 +1,143 @@
+/**
+ * CScalp trainer - CSS design tokens (pixel shell).
+ * Colors sampled from CiScalp.png - regenerate: npm run analyze:reference
+ * Source: artifacts/reference-colors.json
+ */
+
+:root {
+  /* Canvas and chrome (sampled) */
+  --cscalp-stage-bg: #060608;
+  --cscalp-window-bg: #0d121a;
+  --cscalp-workspace-bg: #0d121a;
+  --cscalp-topbar-bg: #211642;
+  --cscalp-border: #242527;
+  --cscalp-border-w: 1px;
+  --cscalp-radius-window: 6px;
+  --cscalp-shadow-window: color-mix(in srgb, #000000 55%, transparent);
+
+  /* Typography (sampled) */
+  --cscalp-font-ui: Arial, "Segoe UI", system-ui, sans-serif;
+  --cscalp-font-mono: Consolas, "Courier New", monospace;
+  --cscalp-font-size: 12px;
+  --cscalp-font-size-sm: 11px;
+  --cscalp-font-size-xs: 10px;
+  --cscalp-line-height: 1.15;
+  --cscalp-text-primary: #ffffff;
+  --cscalp-text-secondary: #6c6f74;
+
+  /* Clusters / candles (sampled) - before ask-active mix */
+  --cscalp-cluster-green: #3fbf7f;
+  --cscalp-cluster-red: #c94a4a;
+  --cscalp-cluster-neutral: #6c6f74;
+  --cscalp-poc-white: #ffffff;
+  --cscalp-poc-red: #c94a4a;
+  --cscalp-poc-green: #3fbf7f;
+
+  /* Order book (sampled) */
+  --cscalp-ask-bg: #341c1f;
+  --cscalp-bid-bg: #1c2f26;
+  --cscalp-ask-active: color-mix(in srgb, var(--cscalp-cluster-red) 42%, var(--cscalp-ask-bg));
+  --cscalp-bid-active: #145c35;
+  --cscalp-price-line: color-mix(in srgb, var(--cscalp-text-primary) 20%, transparent);
+  --cscalp-volume-warning: #c77042;
+  --cscalp-density: #75653c;
+  --cscalp-density-bg: color-mix(in srgb, var(--cscalp-density) 38%, transparent);
+
+  /* Tape (sampled) */
+  --cscalp-tape-bg: var(--cscalp-workspace-bg);
+  --cscalp-tape-green: #3fbf7f;
+  --cscalp-tape-red: #c94a4a;
+  --cscalp-tape-bubble-min: 12px;
+  --cscalp-tape-bubble-max: 22px;
+  --cscalp-tape-bubble-font: 8px;
+  --cscalp-tape-bubble-font-lg: 9px;
+
+  /* Panels and grid (sampled) */
+  --cscalp-grid-line: #242527;
+  --cscalp-panel-muted: #0d121a;
+  --cscalp-instrument-bar: #1b1237;
+  --cscalp-bottom-bar: #1f2023;
+
+  /* Working volume (UI chrome - not on reference crop) */
+  --cscalp-vol-key: #1a2438;
+  --cscalp-vol-key-border: #242527;
+  --cscalp-vol-key-active: #0078d7;
+  --cscalp-vol-key-active-bg: #0078d7;
+
+  /* Explain / lesson (non-shell overlays) */
+  --cscalp-highlight-ring: #22d3ee;
+  --cscalp-highlight-glow: color-mix(in srgb, var(--cscalp-highlight-ring) 45%, transparent);
+  --cscalp-dim-opacity: 0.38;
+
+  /* Fixed layout 984x1200 - see referenceLayout.ts */
+  --cscalp-design-w: 984px;
+  --cscalp-design-h: 1200px;
+  --cscalp-scale: 1;
+  --cscalp-topbar-h: 28px;
+  --cscalp-instrument-h: 27px;
+  --cscalp-main-h: 817px;
+  --cscalp-chart-header-h: 34px;
+  --cscalp-chart-h: 270px;
+  --cscalp-chart-dock-h: calc(var(--cscalp-chart-header-h) + var(--cscalp-chart-h));
+  --cscalp-bottom-h: 24px;
+  --cscalp-row-h: 13px;
+  --cscalp-col-clusters: 336px;
+  --cscalp-col-rail: 42px;
+  --cscalp-col-book: 212px;
+  --cscalp-col-tape: calc(
+    var(--cscalp-design-w) - var(--cscalp-col-clusters) - var(--cscalp-col-rail) -
+      var(--cscalp-col-book)
+  );
+  /* Order book layout (212px panel — reference) */
+  --cscalp-col-book-price: 52px;
+  --cscalp-col-price: var(--cscalp-col-book-price);
+  --cscalp-col-book-vol: calc(var(--cscalp-col-book) - var(--cscalp-col-book-price));
+  --cscalp-book-font-size: 8px;
+  --cscalp-book-price-color: #c5c8cc;
+  --cscalp-book-vol-color: var(--cscalp-text-secondary);
+  --cscalp-book-vol-warn: var(--cscalp-volume-warning);
+  --cscalp-ask-heat: color-mix(in srgb, var(--cscalp-volume-warning) 32%, transparent);
+  --cscalp-ask-heat-large: color-mix(in srgb, var(--cscalp-volume-warning) 52%, var(--cscalp-ask-bg));
+  --cscalp-bid-heat: var(--cscalp-density-bg);
+  --cscalp-bid-heat-large: color-mix(in srgb, var(--cscalp-density) 55%, var(--cscalp-bid-bg));
+  --cscalp-spread-line: color-mix(in srgb, var(--cscalp-text-primary) 28%, transparent);
+  --cscalp-col-cluster-cell: calc(var(--cscalp-col-clusters) / 10);
+
+  /* Footprint fills (local bar behind number, not full-cell heatmap) */
+  --cscalp-footprint-buy: rgba(63, 191, 127, 0.42);
+  --cscalp-footprint-sell: rgba(201, 74, 74, 0.42);
+  --cscalp-footprint-neutral: rgba(108, 111, 116, 0.28);
+  --cscalp-footprint-buy-weak: rgba(63, 191, 127, 0.16);
+  --cscalp-footprint-sell-weak: rgba(201, 74, 74, 0.16);
+  --cscalp-footprint-neutral-weak: rgba(108, 111, 116, 0.12);
+  --cscalp-chart-bg: #0d121a;
+  --cscalp-chart-grid: #1b1f24;
+  --cscalp-chart-candle-up: #3fbf7f;
+  --cscalp-chart-candle-down: #c94a4a;
+  --cscalp-chart-price-line: color-mix(in srgb, var(--cscalp-text-primary) 35%, transparent);
+  --cscalp-chart-price-tag-bg: #c94a4a;
+  --cscalp-chart-price-tag-text: #ffffff;
+  --cscalp-chart-price-tag-font: 8px;
+  --cscalp-chart-axis-font: 8px;
+  --cscalp-chart-time-font: 7px;
+  --cscalp-chart-time-color: #6c6f74;
+  --cscalp-menu-gap: 7px;
+  --cscalp-topbar-pad-x: 6px;
+  --cscalp-topbar-font-size: 10px;
+  --cscalp-topbar-icon-size: 14px;
+  --cscalp-win-btn-size: 15px;
+  --cscalp-badge-bg: var(--cscalp-cluster-red);
+  --cscalp-badge-text: #ffffff;
+  --cscalp-bottom-pad-x: 4px;
+  --cscalp-bottom-gap: 10px;
+  --cscalp-rail-gear-size: 11px;
+  --cscalp-rail-pad-y: 2px;
+  --cscalp-instrument-underline-w: 26px;
+  --cscalp-instrument-underline-h: 2px;
+  --cscalp-ui-icon-size: 12px;
+
+  /* Logo placeholder */
+  --cscalp-logo-size: 14px;
+  --cscalp-logo-bg: #2d2454;
+  --cscalp-logo-mark: #c8c4d8;
+}
